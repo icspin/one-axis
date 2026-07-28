@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One Axis · a telescope mount that only makes sense on a rotating sphere</title>
+<meta name="description" content="An equatorial telescope mount turns one axis at one constant speed and tracks the whole sky. Drag the latitude and watch a rotating sphere be the only world where that works.">
+<meta property="og:title" content="One Axis">
+<meta property="og:description" content="An equatorial telescope mount is a machine whose design only makes sense on a rotating sphere. Drag the latitude and watch the axis prove it.">
+<meta property="og:image" content="https://icspin.github.io/one-axis/og.png">
+<meta property="og:url" content="https://icspin.github.io/one-axis/">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0b0d10">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2315181d'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%239aa4b0' stroke-width='2'/%3E%3Cline x1='9.5' y1='22.5' x2='22.5' y2='9.5' stroke='%23d9a441' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='8' r='1.8' fill='%23d9a441'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --crinkle:#0b0d10; --housing:#15181d; --housing2:#1b1f26; --edge:#2a2f37;
+  --ink:#edf1f4; --steel:#9aa4b0; --faint:#5d656e;
+  --brass:#d9a441; --brass-dim:#8f6c22;
+  --globe:#33e0c2; --flat:#ff6a45;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--crinkle);color:var(--ink);
+  font:15px/1.5 "Chakra Petch","Segoe UI",system-ui,sans-serif;overflow:hidden;
+  -webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+#app{height:100%;height:100dvh;display:flex;flex-direction:column}
+
+header{flex:none;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding:8px 16px 6px;border-bottom:1px solid var(--edge)}
+header h1{margin:0;font-size:19px;font-weight:700;letter-spacing:.22em}
+header h1 b{color:var(--brass);font-weight:700}
+header .sub{color:var(--steel);font-size:13px}
+header .right{margin-left:auto;display:flex;gap:8px}
+
+#demoRow{flex:none;display:flex;gap:6px;align-items:center;padding:7px 16px;
+  border-bottom:1px solid var(--edge);overflow-x:auto;scrollbar-width:thin}
+#demoRow .lbl{font-size:11px;letter-spacing:.14em;color:var(--faint);flex:none;
+  text-transform:uppercase;margin-right:2px}
+button{background:var(--housing);color:var(--ink);border:1px solid var(--edge);
+  border-radius:7px;font:13.5px "Chakra Petch",sans-serif;font-weight:600;
+  padding:6px 11px;cursor:pointer;white-space:nowrap;flex:none}
+button:hover{background:var(--housing2)}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+button.on{border-color:var(--brass);color:var(--brass);background:rgba(217,164,65,.08)}
+button.key b{display:inline-block;min-width:15px;margin-right:5px;padding:0 3px;
+  border:1px solid var(--edge);border-radius:4px;font-size:11.5px;color:var(--faint);
+  font-family:"IBM Plex Mono",monospace;font-weight:500}
+button.on.key b{color:var(--brass);border-color:var(--brass-dim)}
+
+#stage{position:relative;flex:1 1 auto;min-height:0}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;
+  cursor:grab}
+#gl.drag{cursor:grabbing}
+.panelTag{position:absolute;top:8px;pointer-events:none;z-index:4;
+  padding:4px 10px;border-radius:7px;background:rgba(11,13,16,.72)}
+.panelTag .nm{font-size:15.5px;font-weight:700;letter-spacing:.18em}
+.panelTag .cap{font-size:12px;color:var(--steel);
+  font-family:"IBM Plex Mono",monospace}
+#tagG{left:10px}.g #tagG .nm{}
+#tagG .nm{color:var(--globe)}
+#tagF .nm{color:var(--flat)}
+.eyeMask{position:absolute;pointer-events:none;z-index:3}
+.eyeMask .hole{position:absolute;inset:0;
+  background:radial-gradient(circle closest-side, rgba(0,0,0,0) 92%, var(--crinkle) 99%)}
+.eyeMask svg{position:absolute;inset:0;width:100%;height:100%}
+.eyeMask .cap{position:absolute;left:0;right:0;top:calc(100% + 2px);text-align:center;
+  font:600 12.5px "IBM Plex Mono",monospace}
+#eyeG .cap{color:var(--globe)} #eyeF .cap{color:var(--flat)}
+
+#caption{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:5;
+  max-width:min(880px,94%);padding:8px 14px;border-radius:9px;
+  background:rgba(11,13,16,.82);border:1px solid var(--edge);
+  font-size:15px;line-height:1.45;text-align:center}
+#caption .gloss{display:block;margin-top:3px;font-size:12px;color:var(--faint);
+  font-family:"IBM Plex Mono",monospace}
+#subBtns{display:flex;gap:6px;justify-content:center;margin-top:6px}
+#subBtns:empty{display:none}
+
+#controls{flex:none;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:8px 16px;border-top:1px solid var(--edge);background:var(--housing)}
+#latBlock{flex:1 1 320px;min-width:260px;max-width:560px}
+#latTop{display:flex;align-items:baseline;gap:10px}
+#latTop .lbl{font-size:11px;letter-spacing:.14em;color:var(--faint);text-transform:uppercase}
+#latVal{font-size:17px;font-weight:600;color:var(--brass);
+  font-family:"IBM Plex Mono",monospace}
+#latRead{font-size:12px;color:var(--steel);font-family:"IBM Plex Mono",monospace}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;
+  background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+  background:linear-gradient(90deg,var(--flat) 0 18%,var(--edge) 18% 50%,var(--edge) 50% 82%,var(--globe) 82%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;
+  border-radius:50%;background:var(--brass);border:3px solid var(--crinkle);
+  margin-top:-8px;cursor:pointer;box-shadow:0 0 0 1.5px var(--brass)}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--edge)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;
+  background:var(--brass);border:3px solid var(--crinkle);cursor:pointer}
+input[type=range]:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+#latScale{display:flex;justify-content:space-between;margin-top:-4px;
+  font:10.5px "IBM Plex Mono",monospace;color:var(--faint)}
+#presets{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+#presets button{font-size:12px;padding:3px 8px;font-weight:500}
+
+#dial{flex:none;width:104px;text-align:center;user-select:none}
+#dial svg{display:block;margin:0 auto;cursor:grab;touch-action:none}
+#dial.drag svg{cursor:grabbing}
+#dial .dlbl{font:10.5px "IBM Plex Mono",monospace;color:var(--faint);margin-top:1px}
+#dial .dval{font:600 13px "IBM Plex Mono",monospace;color:var(--brass)}
+
+#telem{flex:2 1 420px;min-width:300px;display:flex;flex-direction:column;gap:3px;
+  font-family:"IBM Plex Mono",monospace;font-size:13px}
+.trow{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.trow .side{flex:none;width:52px;font-weight:600;letter-spacing:.1em;font-size:12px}
+.trow.g .side{color:var(--globe)} .trow.f .side{color:var(--flat)}
+.trow .cell{color:var(--steel)}
+.trow .cell b{color:var(--ink);font-weight:500}
+.trow.g .cell b.hot{color:var(--globe)}
+.trow.f .cell b.hot{color:var(--flat)}
+.trow .steady{color:var(--globe);font-weight:600}
+.trow .vary{color:var(--flat);font-weight:600}
+
+footer{flex:none;display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;
+  padding:5px 16px 7px;border-top:1px solid var(--edge);
+  font-size:12.5px;color:var(--faint)}
+footer .bn{color:var(--brass);font-weight:600;font-family:"IBM Plex Mono",monospace}
+footer a{color:var(--steel)}
+footer a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+.overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;
+  justify-content:center;background:rgba(0,0,0,.55);padding:18px}
+.overlay[hidden]{display:none}
+.sheet{max-width:620px;max-height:86vh;overflow:auto;background:var(--housing);
+  border:1px solid var(--edge);border-radius:14px;padding:22px 26px;
+  box-shadow:0 18px 60px rgba(0,0,0,.6)}
+.sheet h2{margin:0 0 10px;font-size:19px;letter-spacing:.06em}
+.sheet h2 b{color:var(--brass)}
+.sheet p{margin:0 0 12px;color:var(--steel);font-size:15px;line-height:1.55}
+.sheet p b{color:var(--ink);font-weight:600}
+.sheet .keys{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--faint);
+  margin-bottom:14px}
+.sheet .keys b{color:var(--steel)}
+
+@media (max-width:860px){
+  header .sub{display:none}
+  #dial{display:none}
+  #caption{font-size:13.5px;bottom:6px}
+  #caption .gloss{display:none}
+  .panelTag .cap{display:none}
+  #telem{font-size:11.5px}
+  #controls{gap:8px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>ONE <b>AXIS</b></h1>
+    <span class="sub">a telescope mount that only makes sense on a rotating sphere</span>
+    <span class="right">
+      <button id="helpBtn" type="button">what am I looking at?</button>
+      <button id="pauseBtn" type="button" class="key"><b>SP</b>Pause</button>
+      <button id="resetBtn" type="button" class="key"><b>R</b>Reset</button>
+    </span>
+  </header>
+
+  <div id="demoRow" role="group" aria-label="Demonstrations">
+    <span class="lbl">Show</span>
+    <button class="demo key" data-demo="1" type="button"><b>1</b>Tilt = latitude</button>
+    <button class="demo key" data-demo="2" type="button"><b>2</b>Southern flip</button>
+    <button class="demo key" data-demo="3" type="button"><b>3</b>Star trails</button>
+    <button class="demo key" data-demo="4" type="button"><b>4</b>Eyepiece</button>
+    <button class="demo key" data-demo="5" type="button"><b>5</b>One motor, three speeds</button>
+    <button class="demo key" data-demo="6" type="button"><b>6</b>Set it wrong</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="gl"></canvas>
+    <div class="panelTag" id="tagG"><span class="nm">GLOBE EARTH</span>
+      <span class="cap" id="capG">spinning ball · distant Sun · ONE driven axis</span></div>
+    <div class="panelTag" id="tagF"><span class="nm">FLAT EARTH</span>
+      <span class="cap" id="capF">still disc · near Sun circling · TWO driven axes</span></div>
+    <div class="eyeMask" id="eyeG"><div class="hole"></div>
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="48.5" fill="none" stroke="#33e0c2" stroke-width="1.6" opacity=".9"/>
+        <line x1="8" y1="50" x2="92" y2="50" stroke="#ffffff" stroke-width=".7" opacity=".35"/>
+        <line x1="50" y1="8" x2="50" y2="92" stroke="#ffffff" stroke-width=".7" opacity=".35"/>
+        <circle cx="50" cy="50" r="12" fill="none" stroke="#33e0c2" stroke-width=".9" opacity=".7"/>
+      </svg><div class="cap">field locked</div></div>
+    <div class="eyeMask" id="eyeF"><div class="hole"></div>
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="48.5" fill="none" stroke="#ff6a45" stroke-width="1.6" opacity=".9"/>
+        <line id="chF1" x1="8" y1="50" x2="92" y2="50" stroke="#ffffff" stroke-width=".7" opacity=".35"/>
+        <line id="chF2" x1="50" y1="8" x2="50" y2="92" stroke="#ffffff" stroke-width=".7" opacity=".35"/>
+        <circle cx="50" cy="50" r="12" fill="none" stroke="#ff6a45" stroke-width=".9" opacity=".7"/>
+      </svg><div class="cap">field rotates</div></div>
+    <div id="caption" aria-live="polite"><span id="capText"></span>
+      <span class="gloss">RA: turn around the polar axis · DEC: angle from the celestial equator · ALT / AZ: plain up-down / left-right · field rotation: the image twisting</span>
+      <div id="subBtns"></div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div id="latBlock">
+      <div id="latTop"><span class="lbl">Latitude</span>
+        <span id="latVal">30.4&deg; N</span>
+        <span id="latRead">polar axis altitude 30.4&deg;</span></div>
+      <input id="lat" type="range" min="-90" max="90" step="0.1" value="30.44"
+        aria-label="Observer latitude in degrees">
+      <div id="latScale"><span>90&deg;S</span><span>60&deg;S</span><span>30&deg;S</span><span>0&deg;</span><span>30&deg;N</span><span>60&deg;N</span><span>90&deg;N</span></div>
+      <div id="presets">
+        <button data-lat="0" type="button">Equator</button>
+        <button data-lat="30.44" type="button">Tallahassee 30.4 N</button>
+        <button data-lat="-33.87" type="button">Sydney 33.9 S</button>
+        <button data-lat="66.56" type="button">Arctic circle</button>
+      </div>
+    </div>
+    <div id="dial" title="Sidereal time. Drag the brass ring to scrub.">
+      <svg id="dialSvg" width="86" height="86" viewBox="0 0 100 100"></svg>
+      <div class="dval" id="dialVal">00:00</div>
+      <div class="dlbl">RA CIRCLE · drag to scrub</div>
+    </div>
+    <div id="telem" aria-label="Live drive telemetry">
+      <div class="trow g"><span class="side">GLOBE</span>
+        <span class="cell">RA drive <b class="hot" id="tRA">15.041"/s</b> <span class="steady" id="tRAtag">STEADY</span></span>
+        <span class="cell">DEC <b id="tDEC">parked</b></span>
+        <span class="cell">field rot <b id="tFRg">0.000&deg;/min</b></span></div>
+      <div class="trow f"><span class="side">FLAT</span>
+        <span class="cell">AZ <b class="hot" id="tAZ">--</b> <span class="vary">VARYING</span></span>
+        <span class="cell">ALT <b class="hot" id="tALT">--</b> <span class="vary">VARYING</span></span>
+        <span class="cell">field rot <b class="hot" id="tFRf">--</b></span></div>
+    </div>
+  </div>
+
+  <footer>
+    <span class="bn">build 1</span>
+    <span>single file · every number on screen is computed live from the scene geometry, nothing is keyframed · Sun and Moon shown at equinox for clarity</span>
+    <span data-tools-link></span>
+    <a href="https://github.com/icspin/one-axis">github</a>
+  </footer>
+</div>
+
+<div class="overlay" id="intro">
+  <div class="sheet" role="dialog" aria-label="Introduction">
+    <h2>Two skies, <b>one machine</b></h2>
+    <p><b>Left:</b> the Earth as a spinning ball with a distant Sun.
+       <b>Right:</b> the flat model, a still disc with a small Sun circling above it.</p>
+    <p>Standing in both worlds is the same real machine, an <b>equatorial telescope
+       mount</b>. It can only do one thing: turn one axis at one constant speed.
+       That is enough to track the entire sky, but only in one of these worlds.</p>
+    <p>The numbered buttons run the demonstrations. Drag to look around, use the
+       slider to change latitude, press space to pause.</p>
+    <button id="introGo" type="button" class="on">got it</button>
+  </div>
+</div>
+
+<div class="overlay" id="help" hidden>
+  <div class="sheet" role="dialog" aria-label="Help">
+    <h2>What you are <b>looking at</b></h2>
+    <p>An equatorial mount has one driven axis, the <b>polar axis</b> (brass).
+       Point that axis at the sky's pole and one motor at one constant speed
+       cancels the Earth's rotation, so anything you aim at stays put in the
+       eyepiece. The required tilt of that axis above your horizon is exactly
+       your latitude, everywhere on Earth.</p>
+    <p>The flat model has to explain the same sky with a still ground. Its
+       telescope needs two axes (<b>ALT</b> up-down, <b>AZ</b> left-right),
+       both speeds changing all the time, and the eyepiece image twists while
+       it tracks. Real numbers for both machines run in the strip below.</p>
+    <p class="keys"><b>1..6</b> demonstrations · <b>space</b> pause · <b>R</b> reset ·
+       <b>arrows</b> latitude · drag rotates both views together · pinch or wheel zooms</p>
+    <p>Sun and Moon sit at the equinox positions for clarity. Every readout is
+       computed from the live geometry each frame.</p>
+    <button id="helpGo" type="button" class="on">back</button>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================== constants ============================== */
+const TAU = Math.PI * 2, DEG = Math.PI / 180;
+const SID_DAY = 86164.0905;             /* seconds per sidereal day */
+const YEAR = 366.2564;                  /* sidereal days per year */
+const MONTH = 27.3217;                  /* sidereal days per lunar orbit */
+const SOLAR = 1.0027379;                /* sidereal days per solar day */
+const RATE = { star: 15.0411, sun: 15.0000, moon: 14.4921 }; /* arcsec per s */
+const C = {
+  crinkle: 0x0b0d10, ink: 0xedf1f4, steel: 0x9aa4b0, faint: 0x5d656e,
+  brass: 0xd9a441, globe: 0x33e0c2, flat: 0xff6a45,
+  ballBase: '#16202b', ballLine: '#46586b', discBase: '#1d1c22', discLine: '#4d4a56'
+};
+const SPEED = 3000;                     /* sim seconds per wall second */
+
+/* ============================== state ============================== */
+const S = {
+  lat: 30.44,                 /* degrees */
+  t: 0.31,                    /* sim time in sidereal days */
+  playing: true,
+  demo: 0,                    /* 0 none, 1..6 */
+  target: 'sun',              /* star | sun | moon */
+  driveRate: 'sun',           /* matched drive rate */
+  misalign: 0,                /* degrees of deliberate polar axis error */
+  view: 'orbit',              /* orbit | sky */
+  tracking: true,             /* trails demo: mount drive on or off */
+  cam: { yaw: 0.62, pitch: 0.34, dist: 3.55 },
+  sky: { yaw: 0, pitch: 0 },  /* drag offsets in sky view */
+  eyeBig: false,
+  latAnim: null,              /* {from,to,t0,dur} */
+  trailsOn: false,
+  needTrailClear: false,
+  reduced: matchMedia('(prefers-reduced-motion: reduce)').matches
+};
+const DEFAULTS = JSON.stringify({ lat: S.lat, t: S.t, cam: S.cam });
+
+/* ============================== renderer ============================== */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.autoClear = false;
+const DPR = Math.min(devicePixelRatio || 1, 2);
+renderer.setPixelRatio(DPR);
+
+/* ============================== helpers ============================== */
+function labelSprite(text, color, opts) {
+  opts = opts || {};
+  const px = opts.px || 44, pad = 18;
+  const cv = document.createElement('canvas');
+  const cx = cv.getContext('2d');
+  cx.font = `600 ${px}px "IBM Plex Mono", monospace`;
+  cv.width = Math.ceil(cx.measureText(text).width) + pad * 2;
+  cv.height = px + pad * 2;
+  const draw = (s) => {
+    cx.clearRect(0, 0, cv.width, cv.height);
+    cx.font = `600 ${px}px "IBM Plex Mono", monospace`;
+    cx.textBaseline = 'middle';
+    cx.lineWidth = 7; cx.strokeStyle = 'rgba(11,13,16,.9)';
+    cx.strokeText(s, pad, cv.height / 2);
+    cx.fillStyle = color;
+    cx.fillText(s, pad, cv.height / 2);
+  };
+  draw(text);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, depthTest: false }));
+  const h = opts.h || 0.11;
+  sp.scale.set(h * cv.width / cv.height, h, 1);
+  sp.renderOrder = 20;
+  sp.userData.set = (s) => {
+    const w = Math.ceil(cx.measureText(s).width) + pad * 2;
+    if (w > cv.width) { cv.width = w; }
+    draw(s); tex.needsUpdate = true;
+    sp.scale.set(h * cv.width / cv.height, h, 1);
+  };
+  return sp;
+}
+function glowSprite(color, size) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const cx = cv.getContext('2d');
+  const g = cx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, color); g.addColorStop(0.35, color.replace(')', ',.5)').replace('rgb', 'rgba'));
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = g; cx.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(cv);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  sp.scale.set(size, size, 1);
+  return sp;
+}
+function tube(from, to, r, color) {
+  const dir = new THREE.Vector3().subVectors(to, from);
+  const len = dir.length();
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(r, r, len, 10),
+    new THREE.MeshBasicMaterial({ color }));
+  m.position.copy(from).addScaledVector(dir, 0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+  return m;
+}
+function arcTube(radius, r, a0, a1, color, seg) {
+  const pts = [];
+  const n = seg || 40;
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + (a1 - a0) * i / n;
+    pts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, 0));
+  }
+  return new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), n, r, 7, false),
+    new THREE.MeshBasicMaterial({ color }));
+}
+function ringTube(radius, r, color, seg) {
+  return new THREE.Mesh(
+    new THREE.TorusGeometry(radius, r, 8, seg || 72),
+    new THREE.MeshBasicMaterial({ color }));
+}
+function starPoints(n, rad, seed, yMin) {
+  const pos = new Float32Array(n * 3);
+  let s = seed >>> 0;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  for (let i = 0; i < n; i++) {
+    let x, y, z;
+    do {
+      const u = rnd() * 2 - 1, a = rnd() * TAU;
+      const rr = Math.sqrt(1 - u * u);
+      x = rr * Math.cos(a); y = u; z = rr * Math.sin(a);
+    } while (yMin !== undefined && y < yMin);
+    pos[i * 3] = x * rad; pos[i * 3 + 1] = y * rad; pos[i * 3 + 2] = z * rad;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  return g;
+}
+
+/* ============================== globe scene ============================== */
+const sceneG = new THREE.Scene();
+sceneG.background = new THREE.Color(C.crinkle);
+
+function ballTexture() {
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 512;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = C.ballBase; cx.fillRect(0, 0, 1024, 512);
+  cx.strokeStyle = C.ballLine; cx.lineWidth = 3;
+  for (let lon = 0; lon < 360; lon += 30) {
+    const x = lon / 360 * 1024;
+    cx.beginPath(); cx.moveTo(x, 10); cx.lineTo(x, 502); cx.stroke();
+  }
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const y = (90 - lat) / 180 * 512;
+    cx.beginPath(); cx.moveTo(0, y); cx.lineTo(1024, y); cx.stroke();
+  }
+  cx.strokeStyle = '#2a8f80'; cx.lineWidth = 6;
+  cx.beginPath(); cx.moveTo(0, 256); cx.lineTo(1024, 256); cx.stroke();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const earth = new THREE.Group();          /* rotates about +Y at sidereal rate */
+sceneG.add(earth);
+earth.add(new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32),
+  new THREE.MeshBasicMaterial({ map: ballTexture() })));
+
+/* polar axis rod through the ball */
+const axisRod = tube(new THREE.Vector3(0, -1.42, 0), new THREE.Vector3(0, 1.42, 0), 0.014, C.brass);
+sceneG.add(axisRod);
+const npLabel = labelSprite('N', '#d9a441', { h: 0.12 }); npLabel.position.set(0, 1.56, 0);
+const spLabel = labelSprite('S', '#d9a441', { h: 0.12 }); spLabel.position.set(0, -1.56, 0);
+sceneG.add(npLabel, spLabel);
+const poleStar = glowSprite('rgb(237,241,244)', 0.24); poleStar.position.set(0, 2.5, 0);
+sceneG.add(poleStar);
+const poleLabel = labelSprite('to the pole star', '#9aa4b0', { h: 0.085 });
+poleLabel.position.set(0, 2.72, 0); sceneG.add(poleLabel);
+
+/* spin arrow around the axis above the ball */
+const spinArrow = arcTube(0.34, 0.012, 0, TAU * 0.7, C.brass, 48);
+spinArrow.rotation.x = -Math.PI / 2; spinArrow.position.y = 1.18;
+sceneG.add(spinArrow);
+const spinTip = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 10),
+  new THREE.MeshBasicMaterial({ color: C.brass }));
+spinTip.position.set(Math.cos(TAU * 0.7) * 0.34, 1.18, -Math.sin(TAU * 0.7) * 0.34);
+spinTip.rotation.set(0, -TAU * 0.7 - Math.PI / 2, -Math.PI / 2);
+sceneG.add(spinTip);
+
+/* equator ring */
+const eqRing = ringTube(1.012, 0.007, 0x2a8f80);
+eqRing.rotation.x = Math.PI / 2; earth.add(eqRing);
+
+/* inertial star sphere */
+const starsG = new THREE.Points(starPoints(1100, 38, 7),
+  new THREE.PointsMaterial({ color: 0xcdd7ff, size: 2.2, sizeAttenuation: false,
+    transparent: true, opacity: 0.85 }));
+sceneG.add(starsG);
+
+/* sun and moon, distant, dec 0, slow inertial drift */
+const sunG = new THREE.Group();
+const sunBall = new THREE.Mesh(new THREE.SphereGeometry(0.09, 20, 14),
+  new THREE.MeshBasicMaterial({ color: 0xfff3c4 }));
+sunG.add(sunBall, glowSprite('rgb(255,226,122)', 0.55));
+sceneG.add(sunG);
+const sunLabelG = labelSprite('Sun (far away)', '#ffe27a', { h: 0.09 });
+sceneG.add(sunLabelG);
+const moonG = new THREE.Group();
+moonG.add(new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 12),
+  new THREE.MeshBasicMaterial({ color: 0xb9c0cc })));
+sceneG.add(moonG);
+const moonLabelG = labelSprite('Moon', '#b9c0cc', { h: 0.08 });
+sceneG.add(moonLabelG);
+/* the demo star target */
+const tgtStar = glowSprite('rgb(51,224,194)', 0.3);
+sceneG.add(tgtStar);
+
+/* latitude arc from equator to observer, rebuilt on change */
+let latArc = null;
+/* observer assembly, child of earth so it is carried by the spin */
+const obs = new THREE.Group(); earth.add(obs);
+const horizonRing = ringTube(0.26, 0.006, 0x9aa4b0, 48);
+horizonRing.rotation.x = Math.PI / 2; horizonRing.position.y = 0.015;
+obs.add(horizonRing);
+obs.add(tube(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.07, 0), 0.02, 0x6b747e));
+/* the mount head: polar axis + scope, aimed in world space each frame */
+const mountG = new THREE.Group(); sceneG.add(mountG);
+const polarAxis = tube(new THREE.Vector3(0, -0.1, 0), new THREE.Vector3(0, 0.30, 0), 0.017, C.brass);
+mountG.add(polarAxis);
+const raCircle = ringTube(0.06, 0.012, 0xb98d33, 36);
+raCircle.rotation.x = Math.PI / 2; raCircle.position.y = 0.12; mountG.add(raCircle);
+const scopeG = new THREE.Group(); mountG.add(scopeG);
+const scopeTube = tube(new THREE.Vector3(0, 0, -0.03), new THREE.Vector3(0, 0, 0.36), 0.02, 0xffffff);
+scopeG.add(scopeTube);
+scopeG.add(tube(new THREE.Vector3(0, 0, -0.03), new THREE.Vector3(0, 0, -0.16), 0.013, 0xb98d33));
+scopeG.position.y = 0.20;
+const latLabel = labelSprite('latitude 30.4 N', '#33e0c2', { h: 0.095 });
+sceneG.add(latLabel);
+const axisAltLabel = labelSprite('axis tilt 30.4', '#d9a441', { h: 0.095 });
+sceneG.add(axisAltLabel);
+/* axis altitude wedge at the mount, rebuilt on change */
+let axisWedge = null;
+
+/* ============================== flat scene ============================== */
+const sceneF = new THREE.Scene();
+sceneF.background = new THREE.Color(C.crinkle);
+
+function discTexture() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1024;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = C.discBase; cx.fillRect(0, 0, 1024, 1024);
+  cx.translate(512, 512);
+  cx.strokeStyle = C.discLine; cx.lineWidth = 3;
+  for (let i = 1; i <= 3; i++) {
+    cx.beginPath(); cx.arc(0, 0, 512 * i / 3 - 6, 0, TAU); cx.stroke();
+  }
+  for (let a = 0; a < 12; a++) {
+    cx.beginPath(); cx.moveTo(0, 0);
+    cx.lineTo(Math.cos(a * TAU / 12) * 506, Math.sin(a * TAU / 12) * 506); cx.stroke();
+  }
+  cx.fillStyle = '#d9a441';
+  cx.beginPath(); cx.arc(0, 0, 10, 0, TAU); cx.fill();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const DISC_R = 1.5;
+const disc = new THREE.Mesh(new THREE.CircleGeometry(DISC_R, 72),
+  new THREE.MeshBasicMaterial({ map: discTexture() }));
+disc.rotation.x = -Math.PI / 2; sceneF.add(disc);
+const rim = ringTube(DISC_R, 0.012, 0x6b747e); rim.rotation.x = Math.PI / 2;
+sceneF.add(rim);
+const centerLabel = labelSprite('the one center', '#9aa4b0', { h: 0.085 });
+centerLabel.position.set(0, 0.16, 0); sceneF.add(centerLabel);
+/* central axis the flat sky turns around */
+sceneF.add(tube(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1.9, 0), 0.007, 0x3a4048));
+
+/* FE star dome, rotates about the center */
+const domeF = new THREE.Group(); sceneF.add(domeF);
+const starsF = new THREE.Points(starPoints(800, 3.3, 19, 0.08),
+  new THREE.PointsMaterial({ color: 0xcdd7ff, size: 2.2, sizeAttenuation: false,
+    transparent: true, opacity: 0.85 }));
+domeF.add(starsF);
+
+/* FE sun, low and near, circling the center */
+const SUN_F = { r: 0.62, h: 0.58 };
+const sunF = new THREE.Group();
+sunF.add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 18, 12),
+  new THREE.MeshBasicMaterial({ color: 0xfff3c4 })));
+sunF.add(glowSprite('rgb(255,226,122)', 0.34));
+sceneF.add(sunF);
+const sunFTrack = ringTube(SUN_F.r, 0.006, 0x7a4a34);
+sunFTrack.rotation.x = Math.PI / 2; sunFTrack.position.y = SUN_F.h; sceneF.add(sunFTrack);
+const sunLabelF = labelSprite('Sun (small, near)', '#ffe27a', { h: 0.085 });
+sceneF.add(sunLabelF);
+const moonF = new THREE.Group();
+moonF.add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 14, 10),
+  new THREE.MeshBasicMaterial({ color: 0xb9c0cc })));
+sceneF.add(moonF);
+
+/* FE observer: alt-az mount */
+const obsF = new THREE.Group(); sceneF.add(obsF);
+obsF.add(tube(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.16, 0), 0.02, 0xcfd6de));
+const azRing = ringTube(0.13, 0.01, 0xb14a30, 40);
+azRing.rotation.x = Math.PI / 2; azRing.position.y = 0.02; obsF.add(azRing);
+const azHead = new THREE.Group(); azHead.position.y = 0.16; obsF.add(azHead);
+const azNeedle = tube(new THREE.Vector3(0, -0.13, 0), new THREE.Vector3(0, -0.13, 0.17), 0.011, C.flat);
+azHead.add(azNeedle);
+const altFork = new THREE.Group(); azHead.add(altFork);
+altFork.add(tube(new THREE.Vector3(0, 0, -0.02), new THREE.Vector3(0, 0, 0.3), 0.018, 0xffffff));
+const azLabel = labelSprite('AZ', '#ff6a45', { h: 0.08 });
+const altLabel = labelSprite('ALT', '#ff6a45', { h: 0.08 });
+sceneF.add(azLabel, altLabel);
+
+/* ============================== cameras ============================== */
+function makeCam() { return new THREE.PerspectiveCamera(46, 1, 0.01, 120); }
+const camG = makeCam(), camF = makeCam();
+const eyeCamG = makeCam(), eyeCamF = makeCam();
+eyeCamG.fov = 8; eyeCamF.fov = 8;
+
+/* ============================== trails ============================== */
+let rtG = null, rtF = null;
+const quadScene = new THREE.Scene();
+const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const quadMat = new THREE.MeshBasicMaterial({ depthTest: false });
+quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quadMat));
+
+/* ============================== math per frame ============================== */
+const V = {
+  earthAngle: 0,
+  obsW: new THREE.Vector3(), upW: new THREE.Vector3(),
+  eastW: new THREE.Vector3(), northW: new THREE.Vector3(),
+  sunDirW: new THREE.Vector3(), moonDirW: new THREE.Vector3(), starDirW: new THREE.Vector3(),
+  tgtDirG: new THREE.Vector3(),
+  obsF: new THREE.Vector3(), sunFW: new THREE.Vector3(), tgtDirF: new THREE.Vector3(),
+  az: 0, alt: 0, azRate: 0, altRate: 0, frF: 0, frG: 0
+};
+const STAR_DEC = 22 * DEG, STAR_LON = 2.1;
+
+function sunLon(t) { return 0.9 + TAU * t / YEAR; }
+function moonLon(t) { return 2.4 + TAU * t / MONTH; }
+function bodyDirG(kind, t) {
+  if (kind === 'star')
+    return new THREE.Vector3(Math.cos(STAR_DEC) * Math.cos(STAR_LON), Math.sin(STAR_DEC),
+      -Math.cos(STAR_DEC) * Math.sin(STAR_LON));
+  const L = kind === 'sun' ? sunLon(t) : moonLon(t);
+  return new THREE.Vector3(Math.cos(L), 0, -Math.sin(L));
+}
+function feSunAngle(t) { return 1.2 + TAU * t / SOLAR * -1; }  /* clockwise seen from above, like the north-center FE map */
+function feStarAngle(t) { return TAU * t * -1; }
+function feBodyPos(kind, t) {
+  if (kind === 'moon') {
+    const a = 1.9 - TAU * t / (SOLAR * 1.035);
+    return new THREE.Vector3(Math.cos(a) * SUN_F.r * 1.12, SUN_F.h * 1.1, Math.sin(a) * SUN_F.r * 1.12);
+  }
+  const a = feSunAngle(t);
+  return new THREE.Vector3(Math.cos(a) * SUN_F.r, SUN_F.h, Math.sin(a) * SUN_F.r);
+}
+function feObsPos(latDeg) {
+  const r = DISC_R * (90 - latDeg) / 180;
+  const a = -0.5; /* fixed spoke, roughly matching the globe observer longitude visually */
+  return new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
+}
+function feAltAz(latDeg, t, kind) {
+  const o = feObsPos(latDeg);
+  const p = feBodyPos(kind || 'sun', t);
+  const dx = p.x - o.x, dy = p.y, dz = p.z - o.z;
+  const az = Math.atan2(dz, dx);
+  const alt = Math.atan2(dy, Math.hypot(dx, dz));
+  return { az, alt };
+}
+
+function updateWorld() {
+  const t = S.t, lat = S.lat * DEG;
+  V.earthAngle = TAU * t;
+  earth.rotation.y = V.earthAngle;
+
+  /* observer local position on the ball (lon 0 in earth frame) */
+  obs.position.set(Math.cos(lat), Math.sin(lat), 0);
+  obs.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), obs.position.clone().normalize());
+  obs.updateMatrixWorld(true);
+  V.obsW.setFromMatrixPosition(obs.matrixWorld);
+  V.upW.copy(V.obsW).normalize();
+  V.northW.set(0, 1, 0).addScaledVector(V.upW, -Math.sin(lat)).normalize();
+  if (Math.abs(S.lat) > 89.5) V.northW.set(-Math.cos(V.earthAngle), 0, Math.sin(V.earthAngle));
+  V.eastW.crossVectors(V.northW, V.upW).negate().normalize();
+
+  /* bodies */
+  V.sunDirW.copy(bodyDirG('sun', t));
+  V.moonDirW.copy(bodyDirG('moon', t));
+  V.starDirW.copy(bodyDirG('star', t));
+  sunG.position.copy(V.sunDirW).multiplyScalar(3.1);
+  sunLabelG.position.copy(V.sunDirW).multiplyScalar(3.1).add(new THREE.Vector3(0, 0.28, 0));
+  moonG.position.copy(V.moonDirW).multiplyScalar(2.6);
+  moonLabelG.position.copy(moonG.position).add(new THREE.Vector3(0, 0.2, 0));
+  tgtStar.position.copy(V.starDirW).multiplyScalar(30);
+  V.tgtDirG.copy(bodyDirG(S.target, t));
+
+  /* the mount head sits at the observer; polar axis parallel to the world axis,
+     tipped by the deliberate error of demo 6 (rotated in the local meridian plane) */
+  mountG.position.copy(V.obsW).addScaledVector(V.upW, 0.07);
+  const axisW = new THREE.Vector3(0, S.lat >= 0 ? 1 : -1, 0);
+  if (S.misalign) {
+    const q = new THREE.Quaternion().setFromAxisAngle(V.eastW, S.misalign * DEG);
+    axisW.applyQuaternion(q);
+  }
+  mountG.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axisW);
+  /* scope: aim then drive about the actual axis at the chosen rate */
+  const rs = RATE[S.driveRate] / RATE.star;
+  const dAng = V.earthAngle - aim.angle0;
+  const qEarth = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dAng);
+  const qDrive = new THREE.Quaternion().setFromAxisAngle(aim.axis, -dAng * rs);
+  const scopeDir = aim.dir0.clone().applyQuaternion(qEarth).applyQuaternion(qDrive);
+  const scopeUp = aim.up0.clone().applyQuaternion(qEarth).applyQuaternion(qDrive);
+  const m = new THREE.Matrix4().lookAt(new THREE.Vector3(), scopeDir.clone().negate(), scopeUp);
+  scopeG.quaternion.setFromRotationMatrix(m);
+  scopeG.position.copy(mountG.worldToLocal(
+    V.obsW.clone().addScaledVector(V.upW, 0.07).addScaledVector(axisW, 0.20)));
+  raCircle.rotation.z = -dAng * rs;
+  V.scopeDirW = scopeDir; V.scopeUpW = scopeUp; V.axisW = axisW;
+
+  /* labels near the observer */
+  latLabel.position.copy(V.obsW).multiplyScalar(1.24).addScaledVector(V.eastW, -0.05);
+  latLabel.userData.set('latitude ' + fmtLat(S.lat));
+  axisAltLabel.position.copy(V.obsW).addScaledVector(V.upW, 0.13).addScaledVector(axisW, 0.42);
+  axisAltLabel.userData.set('axis tilt ' + Math.abs(S.lat + (S.lat >= 0 ? S.misalign : -S.misalign)).toFixed(1) + '°'
+    + (S.misalign ? ' (WRONG)' : ''));
+
+  /* flat side */
+  V.obsF.copy(feObsPos(S.lat));
+  obsF.position.copy(V.obsF);
+  sunF.position.copy(feBodyPos('sun', t));
+  moonF.position.copy(feBodyPos('moon', t));
+  sunLabelF.position.copy(sunF.position).add(new THREE.Vector3(0, 0.2, 0));
+  V.sunFW.copy(sunF.position);
+  domeF.rotation.y = feStarAngle(t);
+  const feKind = S.target === 'moon' ? 'moon' : 'sun';
+  const aa = feAltAz(S.lat, t, feKind);
+  V.az = aa.az; V.alt = aa.alt;
+  azHead.rotation.y = -aa.az - Math.PI / 2;
+  altFork.rotation.x = -aa.alt;
+  V.tgtDirF.copy(feBodyPos(feKind, t)).sub(V.obsF).normalize();
+  azLabel.position.copy(V.obsF).add(new THREE.Vector3(0.2, 0.03, 0.12));
+  altLabel.position.copy(V.obsF).add(new THREE.Vector3(-0.05, 0.4, 0));
+
+  /* rates via central difference, fixed sim step of 40 s */
+  const h = 40 / SID_DAY;
+  const a1 = feAltAz(S.lat, t - h, feKind), a2 = feAltAz(S.lat, t + h, feKind);
+  let daz = a2.az - a1.az;
+  if (daz > Math.PI) daz -= TAU; if (daz < -Math.PI) daz += TAU;
+  V.azRate = daz / (2 * h) / TAU * 360 / (SID_DAY / 60);       /* deg per min */
+  V.altRate = (a2.alt - a1.alt) / (2 * h) / TAU * 360 / (SID_DAY / 60);
+  /* field rotation, flat: bearing drift of a reference offset as the alt-az
+     camera would see it. Computed from the same geometry the eyepiece renders. */
+  V.frF = feFieldRot(t, feKind);
+  V.frG = eqFieldRot();
+}
+function feFieldRot(t, kind) {
+  const h = 40 / SID_DAY;
+  const b1 = feBearing(t - h, kind), b2 = feBearing(t + h, kind);
+  let db = b2 - b1;
+  if (db > Math.PI) db -= TAU; if (db < -Math.PI) db += TAU;
+  return db / (2 * h) / TAU * 360 / (SID_DAY / 60);
+}
+function feBearing(t, kind) {
+  /* bearing, in the alt-az camera frame, of a fixed FE star offset from the target */
+  const o = feObsPos(S.lat);
+  const p = feBodyPos(kind, t).sub(o);
+  const d = p.clone().normalize();
+  const up = new THREE.Vector3(0, 1, 0).addScaledVector(d, -d.y).normalize(); /* alt-az up */
+  const right = new THREE.Vector3().crossVectors(d, up).normalize();
+  /* reference: a star riding the dome near the target's initial spot */
+  const a0 = feStarAngle(t);
+  const ref = new THREE.Vector3(Math.cos(a0 + 0.9) * 2.2, 1.6, Math.sin(a0 + 0.9) * 2.2).sub(o).normalize();
+  const x = ref.dot(right), y = ref.dot(up);
+  return Math.atan2(y, x);
+}
+function eqFieldRot() {
+  /* same idea for the globe eyepiece: bearing drift of an inertial reference
+     star in the driven equatorial frame. Zero when the axis is right. */
+  const d = V.scopeDirW, up = V.scopeUpW;
+  if (!d) return 0;
+  const right = new THREE.Vector3().crossVectors(d, up).normalize();
+  const ref = new THREE.Vector3(0.2, 0.5, -0.8).normalize();
+  const b = Math.atan2(ref.dot(up), ref.dot(right));
+  const db = b - (eqFieldRot.prev === undefined ? b : eqFieldRot.prev);
+  const dt = S.t - (eqFieldRot.prevT === undefined ? S.t : eqFieldRot.prevT);
+  eqFieldRot.prev = b; eqFieldRot.prevT = S.t;
+  if (!dt) return V.frG || 0;
+  let dd = db; if (dd > Math.PI) dd -= TAU; if (dd < -Math.PI) dd += TAU;
+  return dd / dt / TAU * 360 / (SID_DAY / 60);
+}
+
+/* aim state: where the scope was pointed when last aimed, in world space */
+const aim = { angle0: 0, dir0: new THREE.Vector3(1, 0, 0), up0: new THREE.Vector3(0, 1, 0),
+  axis: new THREE.Vector3(0, 1, 0) };
+function reAim() {
+  aim.angle0 = TAU * S.t;
+  aim.dir0.copy(bodyDirG(S.target, S.t));
+  aim.axis.set(0, S.lat >= 0 ? 1 : -1, 0);
+  if (S.misalign) {
+    const q = new THREE.Quaternion().setFromAxisAngle(V.eastW.lengthSq() ? V.eastW : new THREE.Vector3(1, 0, 0),
+      S.misalign * DEG);
+    aim.axis.applyQuaternion(q);
+  }
+  aim.up0.copy(aim.axis).addScaledVector(aim.dir0, -aim.axis.dot(aim.dir0)).normalize();
+  eqFieldRot.prev = undefined;
+}
+
+/* rebuildable latitude furniture */
+function rebuildLatFurniture() {
+  if (latArc) { sceneG.remove(latArc); latArc.geometry.dispose(); }
+  const lat = S.lat * DEG;
+  if (Math.abs(S.lat) > 1.5) {
+    latArc = arcTube(1.03, 0.010, 0, lat, C.globe, 40);
+    latArc.rotation.y = -V.earthAngle;   /* meridian under the observer */
+    sceneG.add(latArc);
+  } else latArc = null;
+  if (axisWedge) { mountG.remove(axisWedge); axisWedge.geometry.dispose(); }
+  const a = Math.abs(lat);
+  if (a > 0.03) {
+    axisWedge = arcTube(0.30, 0.009, 0, a, C.brass, 24);
+    axisWedge.userData.isWedge = true;
+    sceneG.add(axisWedge);
+  } else axisWedge = null;
+}
+
+/* ============================== layout ============================== */
+const stage = document.getElementById('stage');
+let LW = 2, LH = 2, split = 'v', panG = null, panF = null, eyeG = null, eyeF = null;
+function layout() {
+  const r = stage.getBoundingClientRect();
+  LW = Math.max(2, Math.round(r.width)); LH = Math.max(2, Math.round(r.height));
+  renderer.setSize(LW, LH, false);
+  split = LW >= LH * 0.9 ? 'v' : 'h';
+  if (split === 'v') {
+    const w = Math.floor(LW / 2);
+    panG = { x: 0, y: 0, w: w - 1, h: LH };
+    panF = { x: w + 1, y: 0, w: LW - w - 1, h: LH };
+  } else {
+    const h = Math.floor(LH / 2);
+    panG = { x: 0, y: h + 1, w: LW, h: LH - h - 1 };   /* GL y up: globe on top */
+    panF = { x: 0, y: 0, w: LW, h: h - 1 };
+  }
+  for (const [pan, cam] of [[panG, camG], [panF, camF]]) {
+    cam.aspect = pan.w / pan.h; cam.updateProjectionMatrix();
+  }
+  const eyeSize = Math.round(Math.min(panG.w, panG.h) * (S.eyeBig ? 0.52 : 0.30));
+  eyeG = { s: eyeSize, x: panG.x + 12, y: 12 };
+  eyeF = { s: eyeSize, x: panF.x + 12, y: 12 };
+  positionDom();
+  makeTargets();
+}
+function positionDom() {
+  const tagF = document.getElementById('tagF');
+  const tagG = document.getElementById('tagG');
+  if (split === 'v') {
+    tagG.style.left = '10px'; tagG.style.top = '8px';
+    tagF.style.left = (panF.x + 10) + 'px'; tagF.style.right = 'auto'; tagF.style.top = '8px';
+  } else {
+    tagG.style.left = '10px'; tagG.style.top = '8px';
+    tagF.style.left = '10px'; tagF.style.top = (LH - panF.h + 8) + 'px';
+  }
+  for (const [id, e] of [['eyeG', eyeG], ['eyeF', eyeF]]) {
+    const el = document.getElementById(id);
+    el.style.width = el.style.height = e.s + 'px';
+    el.style.left = e.x + 'px';
+    el.style.top = (LH - e.y - e.s) + 'px';
+  }
+}
+function makeTargets() {
+  if (rtG) rtG.dispose(); if (rtF) rtF.dispose();
+  rtG = new THREE.WebGLRenderTarget(panG.w * DPR, panG.h * DPR);
+  rtF = new THREE.WebGLRenderTarget(panF.w * DPR, panF.h * DPR);
+  S.needTrailClear = true;
+}
+new ResizeObserver(layout).observe(stage);
+
+/* ============================== cameras per frame ============================== */
+function orbitCam(cam, center, distScale) {
+  const { yaw, pitch, dist } = S.cam;
+  const d = dist * (distScale || 1);
+  cam.position.set(
+    center.x + d * Math.cos(pitch) * Math.sin(yaw),
+    center.y + d * Math.sin(pitch),
+    center.z + d * Math.cos(pitch) * Math.cos(yaw));
+  cam.up.set(0, 1, 0);
+  cam.lookAt(center.x, center.y + 0.1, center.z);
+}
+function skyCamG(cam) {
+  const pos = V.obsW.clone().multiplyScalar(1.02);
+  cam.position.copy(pos);
+  const pole = new THREE.Vector3(0, S.lat >= 0 ? 1 : -1, 0);
+  let dir;
+  if (S.tracking) {
+    dir = V.tgtDirG.clone();
+  } else {
+    dir = pole.clone().addScaledVector(V.upW, 0.15).normalize();
+  }
+  applySkyOffset(dir, V.upW);
+  cam.up.copy(S.tracking && V.scopeUpW ? V.scopeUpW : V.upW);
+  cam.lookAt(pos.clone().add(dir));
+}
+function skyCamF(cam) {
+  const pos = V.obsF.clone().add(new THREE.Vector3(0, 0.06, 0));
+  cam.position.copy(pos);
+  let dir;
+  if (S.tracking) {
+    dir = V.tgtDirF.clone();
+    cam.up.set(0, 1, 0).addScaledVector(dir, -dir.y).normalize();
+  } else {
+    dir = new THREE.Vector3(0, 1.15, 0).sub(pos).normalize().addScaledVector(new THREE.Vector3(0, 1, 0), 0.2).normalize();
+    cam.up.set(0, 1, 0);
+  }
+  applySkyOffset(dir, new THREE.Vector3(0, 1, 0));
+  cam.lookAt(pos.clone().add(dir));
+}
+function applySkyOffset(dir, up) {
+  if (!S.sky.yaw && !S.sky.pitch) return;
+  const right = new THREE.Vector3().crossVectors(dir, up).normalize();
+  dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(up, -S.sky.yaw));
+  dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(right, -S.sky.pitch));
+}
+function eyeCams() {
+  eyeCamG.position.copy(V.obsW).multiplyScalar(1.02);
+  eyeCamG.up.copy(V.scopeUpW || V.upW);
+  eyeCamG.lookAt(eyeCamG.position.clone().add(V.scopeDirW || V.tgtDirG));
+  eyeCamG.aspect = 1; eyeCamG.updateProjectionMatrix();
+  eyeCamF.position.copy(V.obsF).add(new THREE.Vector3(0, 0.2, 0));
+  const d = V.tgtDirF;
+  eyeCamF.up.set(0, 1, 0).addScaledVector(d, -d.y).normalize();
+  eyeCamF.lookAt(eyeCamF.position.clone().add(d));
+  eyeCamF.aspect = 1; eyeCamF.updateProjectionMatrix();
+}
+
+/* ============================== render ============================== */
+let lastWall = performance.now(), lastFrame = 0, wedgeQuat = new THREE.Quaternion();
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (now - lastFrame < 32) return;      /* 30 fps cap */
+  const dt = Math.min(0.1, (now - lastWall) / 1000); lastWall = now; lastFrame = now;
+
+  if (S.latAnim) {
+    const k = Math.min(1, (now - S.latAnim.t0) / S.latAnim.dur);
+    setLat(S.latAnim.from + (S.latAnim.to - S.latAnim.from) * (k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2), true);
+    if (k >= 1) S.latAnim = null;
+  }
+  if (S.playing) S.t += dt * SPEED / SID_DAY * (S.demo === 3 ? 2.2 : 1);
+
+  updateWorld();
+  /* wedge + latitude arc follow the moving meridian */
+  if (latArc) latArc.rotation.set(0, -Math.PI / 2 + 0, 0),
+    latArc.setRotationFromEuler(new THREE.Euler(0, 0, 0)),
+    latArc.rotateY(Math.atan2(V.obsW.z, V.obsW.x) * -1 + 0),
+    latArc.rotateY(0);
+  if (latArc) { latArc.rotation.set(0, 0, 0); latArc.rotateY(-Math.atan2(V.obsW.z, V.obsW.x)); }
+  if (axisWedge) {
+    axisWedge.position.copy(V.obsW).addScaledVector(V.upW, 0.07);
+    const northH = V.northW.clone().multiplyScalar(S.lat >= 0 ? 1 : -1);
+    wedgeQuat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+      northH, new THREE.Vector3().crossVectors(V.eastW, northH).normalize().negate(), V.eastW).multiply(
+      new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))));
+    const up2 = new THREE.Vector3().crossVectors(V.eastW, northH).negate().normalize();
+    axisWedge.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(northH, up2, V.eastW.clone()));
+  }
+  telemetry();
+  dialFace();
+
+  renderer.setScissorTest(true);
+  renderer.setClearColor(C.crinkle, 1);
+
+  for (const [pan, scene, cam, skyFn, rt] of [
+    [panG, sceneG, camG, skyCamG, rtG],
+    [panF, sceneF, camF, skyCamF, rtF]]) {
+    if (S.view === 'sky') skyFn(cam); else orbitCam(cam, new THREE.Vector3(0, 0, 0), pan === panF ? 1.02 : 1);
+    renderer.setViewport(pan.x, pan.y, pan.w, pan.h);
+    renderer.setScissor(pan.x, pan.y, pan.w, pan.h);
+    if (S.trailsOn && S.view === 'sky') {
+      if (S.needTrailClear) {
+        renderer.setRenderTarget(rt); renderer.setClearColor(C.crinkle, 1); renderer.clear(true, true);
+      }
+      renderer.setRenderTarget(rt);
+      renderer.setViewport(0, 0, pan.w * DPR, pan.h * DPR);
+      renderer.setScissor(0, 0, pan.w * DPR, pan.h * DPR);
+      renderer.clearDepth();
+      renderer.render(scene, cam);
+      renderer.setRenderTarget(null);
+      renderer.setViewport(pan.x, pan.y, pan.w, pan.h);
+      renderer.setScissor(pan.x, pan.y, pan.w, pan.h);
+      quadMat.map = rt.texture;
+      renderer.clear(true, true);
+      renderer.render(quadScene, quadCam);
+    } else {
+      renderer.clear(true, true);
+      renderer.render(scene, cam);
+    }
+  }
+  S.needTrailClear = false;
+
+  /* eyepieces */
+  eyeCams();
+  for (const [e, scene, cam] of [[eyeG, sceneG, eyeCamG], [eyeF, sceneF, eyeCamF]]) {
+    renderer.setViewport(e.x, e.y, e.s, e.s);
+    renderer.setScissor(e.x, e.y, e.s, e.s);
+    renderer.setClearColor(0x05070a, 1);
+    renderer.clear(true, true);
+    renderer.render(scene, cam);
+  }
+  renderer.setScissorTest(false);
+}
+
+/* ============================== telemetry dom ============================== */
+const $$ = (id) => document.getElementById(id);
+function fmtLat(v) {
+  const a = Math.abs(v);
+  return a.toFixed(1) + '° ' + (v >= -0.05 ? 'N' : 'S');
+}
+function telemetry() {
+  $$('tRA').textContent = RATE[S.driveRate].toFixed(3) + '"/s';
+  $$('tRAtag').textContent = 'STEADY';
+  $$('tFRg').textContent = Math.abs(V.frG).toFixed(3) + '°/min';
+  $$('tAZ').textContent = (V.azRate >= 0 ? '+' : '') + V.azRate.toFixed(2) + '°/min';
+  $$('tALT').textContent = (V.altRate >= 0 ? '+' : '') + V.altRate.toFixed(2) + '°/min';
+  $$('tFRf').textContent = Math.abs(V.frF).toFixed(2) + '°/min';
+  $$('latVal').textContent = fmtLat(S.lat);
+  $$('latRead').textContent = 'polar axis altitude ' +
+    Math.abs(S.lat + (S.lat >= 0 ? S.misalign : -S.misalign)).toFixed(1) + '°' +
+    (S.misalign ? ' (set wrong on purpose)' : '');
+}
+
+/* ============================== dial ============================== */
+const dialSvg = $$('dialSvg');
+(function buildDial() {
+  let s = '<circle cx="50" cy="50" r="46" fill="#15181d" stroke="#2a2f37" stroke-width="2"/>';
+  s += '<g id="dialRing">';
+  for (let h = 0; h < 24; h++) {
+    const a = h / 24 * TAU - Math.PI / 2;
+    const r1 = h % 6 === 0 ? 34 : 39, r2 = 44;
+    s += `<line x1="${50 + Math.cos(a) * r1}" y1="${50 + Math.sin(a) * r1}" x2="${50 + Math.cos(a) * r2}" y2="${50 + Math.sin(a) * r2}" stroke="#d9a441" stroke-width="${h % 6 === 0 ? 2.4 : 1.2}"/>`;
+    if (h % 6 === 0) s += `<text x="${50 + Math.cos(a) * 26}" y="${50 + Math.sin(a) * 26 + 3.5}" fill="#9aa4b0" font-size="9" text-anchor="middle" font-family="IBM Plex Mono,monospace">${h}</text>`;
+  }
+  s += '</g><line x1="50" y1="50" x2="50" y2="8" stroke="#edf1f4" stroke-width="2.2"/>' +
+    '<circle cx="50" cy="50" r="3" fill="#d9a441"/>';
+  dialSvg.innerHTML = s;
+})();
+const dialRing = dialSvg.querySelector('#dialRing');
+function dialFace() {
+  const frac = ((S.t % 1) + 1) % 1;
+  dialRing.setAttribute('transform', `rotate(${-frac * 360} 50 50)`);
+  const hh = Math.floor(frac * 24), mm = Math.floor((frac * 24 - hh) * 60);
+  $$('dialVal').textContent = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+}
+(function dialDrag() {
+  const el = $$('dial');
+  let on = false, a0 = 0, t0 = 0;
+  const ang = (e) => {
+    const r = dialSvg.getBoundingClientRect();
+    return Math.atan2(e.clientY - r.top - r.height / 2, e.clientX - r.left - r.width / 2);
+  };
+  dialSvg.addEventListener('pointerdown', (e) => {
+    on = true; a0 = ang(e); t0 = S.t; el.classList.add('drag');
+    dialSvg.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  dialSvg.addEventListener('pointermove', (e) => {
+    if (!on) return;
+    let da = ang(e) - a0;
+    if (da > Math.PI) da -= TAU; if (da < -Math.PI) da += TAU;
+    S.t = t0 - da / TAU;
+  });
+  const end = () => { on = false; el.classList.remove('drag'); };
+  dialSvg.addEventListener('pointerup', end);
+  dialSvg.addEventListener('pointercancel', end);
+})();
+
+/* ============================== input: orbit ============================== */
+(function pointerOrbit() {
+  const el = canvas;
+  const ptrs = new Map();
+  let pinch0 = 0, dist0 = 0;
+  el.addEventListener('pointerdown', (e) => {
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('drag');
+    if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      pinch0 = Math.hypot(a.x - b.x, a.y - b.y); dist0 = S.cam.dist;
+    }
+  });
+  el.addEventListener('pointermove', (e) => {
+    const p = ptrs.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (ptrs.size === 1) {
+      if (S.view === 'sky') {
+        S.sky.yaw += dx * 0.0035; S.sky.pitch += dy * 0.0035;
+        S.sky.pitch = Math.max(-1.2, Math.min(1.2, S.sky.pitch));
+      } else {
+        S.cam.yaw -= dx * 0.006;
+        S.cam.pitch = Math.max(-1.35, Math.min(1.35, S.cam.pitch + dy * 0.006));
+      }
+    } else if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch0) S.cam.dist = Math.max(1.6, Math.min(8, dist0 * pinch0 / d));
+    }
+  });
+  const up = (e) => { ptrs.delete(e.pointerId); if (!ptrs.size) el.classList.remove('drag'); };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  el.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    S.cam.dist = Math.max(1.6, Math.min(8, S.cam.dist * (e.deltaY > 0 ? 1.07 : 0.935)));
+  }, { passive: false });
+})();
+
+/* ============================== demos ============================== */
+const CAPS = {
+  0: 'Two worlds, one machine. The numbered buttons above run the demonstrations. Drag to spin both views together.',
+  1: 'Slide the latitude. The brass polar axis always tilts up from the horizon by exactly your latitude: flat at the equator, straight up at the pole. One number, measured against the sky, sets up the whole machine anywhere on Earth.',
+  2: 'Watch the axis flip. South of the equator the mount points at a second celestial pole in the southern sky, and star circles run the opposite way. A flat plane has one center overhead. It has nowhere to put a second pole.',
+  3: 'A long exposure of each sky. Globe: stars sweep clean circles about the pole, and turning the one axis freezes them to points. Flat: an off-center observer gets sweeps that are not circles and never close. Nobody photographs that sky.',
+  4: 'Through both telescopes at once. The globe mount holds the target and the whole field still. The flat mount keeps its target centered, but the field twists as it tracks. That twist is why alt-az photos need a de-rotator. Refraction cannot do this.',
+  5: 'Three switch positions on a real motor: stars 15.041, Sun 15.000, Moon 14.492 arcsec per second. Same axis, same direction, all constant. The gaps ARE the year and the month: the Sun falls one lap behind the stars per year, the Moon one per 27.3 days.',
+  6: 'The axis is now set wrong by 6 degrees on purpose. One motor at the right speed around the wrong line, and the target immediately drifts out of the eyepiece. Tilt equals latitude is not a habit, it is measured, and the sky grades it instantly.'
+};
+function setDemo(n) {
+  S.demo = n;
+  document.querySelectorAll('.demo').forEach(b => b.classList.toggle('on', +b.dataset.demo === n));
+  $$('capText').textContent = CAPS[n] || CAPS[0];
+  const sub = $$('subBtns'); sub.innerHTML = '';
+  S.trailsOn = false; S.view = 'orbit'; S.eyeBig = false; S.misalign = 0;
+  S.sky.yaw = 0; S.sky.pitch = 0;
+  if (n === 1) {
+    S.cam = { yaw: 1.35, pitch: 0.10, dist: 3.4 };
+    if (!S.reduced) S.latAnim = { from: S.lat, to: S.lat > 45 ? 8 : 72, t0: performance.now(), dur: 5000 };
+  } else if (n === 2) {
+    S.cam = { yaw: 1.35, pitch: 0.06, dist: 3.6 };
+    S.latAnim = { from: Math.max(S.lat, 20), to: -33.87, t0: performance.now(), dur: S.reduced ? 1 : 6000 };
+  } else if (n === 3) {
+    S.view = 'sky'; S.trailsOn = true; S.needTrailClear = true; S.tracking = false;
+    addSub(sub, [['mount OFF: let it spin', () => { S.tracking = false; S.needTrailClear = true; }, () => !S.tracking],
+                 ['mount ON: one axis drives', () => { S.tracking = true; reAim(); S.needTrailClear = true; }, () => S.tracking],
+                 ['clear exposure', () => { S.needTrailClear = true; }, () => false]]);
+  } else if (n === 4) {
+    S.eyeBig = true;
+    S.cam = { yaw: 0.62, pitch: 0.34, dist: 4.2 };
+  } else if (n === 5) {
+    S.cam = { yaw: 0.62, pitch: 0.34, dist: 3.55 };
+    addSub(sub, [['track a star: 15.041"/s', () => setTarget('star'), () => S.target === 'star'],
+                 ['track the Sun: 15.000"/s', () => setTarget('sun'), () => S.target === 'sun'],
+                 ['track the Moon: 14.492"/s', () => setTarget('moon'), () => S.target === 'moon']]);
+  } else if (n === 6) {
+    S.eyeBig = true; S.misalign = 6; reAim();
+    S.cam = { yaw: 1.1, pitch: 0.22, dist: 3.2 };
+  }
+  if (n !== 6) reAim();
+  layout();
+}
+function addSub(root, items) {
+  for (const [label, fn, isOn] of items) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label;
+    b.className = isOn() ? 'on' : '';
+    b.addEventListener('click', () => { fn(); [...root.children].forEach((c, i) => c.className = items[i][2]() ? 'on' : ''); });
+    root.appendChild(b);
+  }
+}
+function setTarget(k) { S.target = k; S.driveRate = k; reAim(); }
+
+/* ============================== wiring ============================== */
+document.querySelectorAll('.demo').forEach(b =>
+  b.addEventListener('click', () => setDemo(+b.dataset.demo)));
+$$('pauseBtn').addEventListener('click', togglePause);
+function togglePause() {
+  S.playing = !S.playing;
+  $$('pauseBtn').innerHTML = '<b>SP</b>' + (S.playing ? 'Pause' : 'Play');
+  $$('pauseBtn').classList.toggle('on', !S.playing);
+}
+$$('resetBtn').addEventListener('click', resetAll);
+function resetAll() {
+  const d = JSON.parse(DEFAULTS);
+  S.lat = d.lat; S.t = d.t; S.cam = { ...d.cam };
+  S.sky = { yaw: 0, pitch: 0 }; S.latAnim = null;
+  S.target = 'sun'; S.driveRate = 'sun'; S.misalign = 0;
+  if (!S.playing) togglePause();
+  latSlider.value = S.lat;
+  setDemo(0); rebuildLatFurniture(); reAim();
+}
+const latSlider = $$('lat');
+latSlider.addEventListener('input', () => setLat(parseFloat(latSlider.value)));
+function setLat(v, fromAnim) {
+  S.lat = Math.max(-90, Math.min(90, v));
+  if (!fromAnim) S.latAnim = null;
+  latSlider.value = S.lat;
+  rebuildLatFurniture();
+  reAim();
+  if (S.trailsOn) S.needTrailClear = true;
+}
+document.querySelectorAll('#presets button').forEach(b =>
+  b.addEventListener('click', () => setLat(parseFloat(b.dataset.lat))));
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === ' ') { e.preventDefault(); togglePause(); }
+  else if (e.key === 'r' || e.key === 'R') resetAll();
+  else if (e.key >= '1' && e.key <= '6') setDemo(+e.key);
+  else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') setLat(S.lat + 2);
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') setLat(S.lat - 2);
+});
+$$('helpBtn').addEventListener('click', () => $$('help').hidden = false);
+$$('helpGo').addEventListener('click', () => $$('help').hidden = true);
+$$('introGo').addEventListener('click', () => {
+  $$('intro').hidden = true;
+  try { localStorage.setItem('oneaxis-intro', '1'); } catch (err) {}
+});
+if ((() => { try { return localStorage.getItem('oneaxis-intro'); } catch (err) { return 1; } })())
+  $$('intro').hidden = true;
+if (S.reduced) { S.playing = false; $$('pauseBtn').innerHTML = '<b>SP</b>Play'; }
+
+/* ============================== boot ============================== */
+rebuildLatFurniture();
+reAim();
+setDemo(0);
+layout();
+requestAnimationFrame(frame);
+
+/* ============================== other tools (hub) ==============================
+   Inlined copy of https://icspin.github.io/tools-link.js, the shared snippet.
+   Fails silently and completely if the hub or network is missing. */
+(function () {
+  'use strict';
+  try {
+    var MANIFEST = 'https://icspin.github.io/apps.json';
+    function isHere(url) {
+      try {
+        var u = String(url).replace(/\/+$/, '');
+        var h = location.href.replace(/\/+$/, '');
+        return h === u || h.indexOf(u + '/') === 0 || h.indexOf(u + '?') === 0 || h.indexOf(u + '#') === 0;
+      } catch (err) { return true; }
+    }
+    fetch(MANIFEST + '?v=' + Date.now())
+      .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+      .then(function (list) {
+        if (!Array.isArray(list)) return;
+        var others = list.filter(function (a) {
+          return a && a.name && a.url && a.status === 'live' && !isHere(a.url);
+        });
+        if (others.length) render(others);
+      })
+      .catch(function () {});
+    function render(others) {
+      var css = document.createElement('style');
+      css.textContent =
+        '.ictl-btn{background:none;border:none;padding:2px 4px;margin:0;cursor:pointer;font:inherit;color:inherit;opacity:.75;text-decoration:underline;text-underline-offset:3px}' +
+        '.ictl-btn:hover{opacity:1}.ictl-btn:focus-visible{outline:2px solid #d9a441;outline-offset:2px;opacity:1}' +
+        '.ictl-veil{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.45)}' +
+        '.ictl-pop{position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);min-width:260px;max-width:min(420px,92vw);max-height:80vh;overflow:auto;background:#15181d;color:#edf1f4;border:1px solid #3a3f47;border-radius:12px;padding:16px 18px;font:15px/1.5 system-ui,sans-serif;box-shadow:0 14px 40px rgba(0,0,0,.5)}' +
+        '.ictl-pop h2{margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#9aa4b0}' +
+        '.ictl-pop a{display:block;padding:9px 10px;margin:0 -10px;border-radius:8px;color:inherit;text-decoration:none}' +
+        '.ictl-pop a:hover{background:rgba(255,255,255,.06)}.ictl-pop a:focus-visible{outline:2px solid #d9a441;outline-offset:-2px}' +
+        '.ictl-pop .ictl-nm{font-weight:600;letter-spacing:.06em}' +
+        '.ictl-pop .ictl-bd{float:right;color:#d9a441;font:12.5px ui-monospace,Consolas,monospace}' +
+        '.ictl-pop .ictl-tg{color:#9aa4b0;font-size:13.5px;margin-top:2px}';
+      document.head.appendChild(css);
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'ictl-btn'; btn.textContent = 'other tools';
+      btn.setAttribute('aria-haspopup', 'dialog');
+      var mount = document.querySelector('[data-tools-link]');
+      if (mount) mount.appendChild(btn); else document.body.appendChild(btn);
+      var veil = null, pop = null;
+      function close() {
+        if (veil) veil.remove(); if (pop) pop.remove();
+        veil = pop = null; document.removeEventListener('keydown', onKey); btn.focus();
+      }
+      function onKey(e) { if (e.key === 'Escape') close(); }
+      function open() {
+        veil = document.createElement('div'); veil.className = 'ictl-veil';
+        veil.addEventListener('click', close);
+        pop = document.createElement('div'); pop.className = 'ictl-pop';
+        pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Other tools by icspin');
+        var h = document.createElement('h2'); h.textContent = 'Other tools'; pop.appendChild(h);
+        others.forEach(function (a) {
+          var link = document.createElement('a'); link.href = a.url;
+          var nm = document.createElement('span'); nm.className = 'ictl-nm'; nm.textContent = a.name;
+          var bd = document.createElement('span'); bd.className = 'ictl-bd';
+          if (a.build != null) bd.textContent = 'build ' + a.build;
+          var tg = document.createElement('div'); tg.className = 'ictl-tg'; tg.textContent = a.tagline || '';
+          link.appendChild(bd); link.appendChild(nm); link.appendChild(tg);
+          pop.appendChild(link);
+        });
+        document.body.appendChild(veil); document.body.appendChild(pop);
+        document.addEventListener('keydown', onKey);
+        var first = pop.querySelector('a'); if (first) first.focus();
+      }
+      btn.addEventListener('click', function () { pop ? close() : open(); });
+    }
+  } catch (err) { /* silent by design */ }
+})();
+</script>
+</body>
+</html>
