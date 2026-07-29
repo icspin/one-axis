@@ -245,7 +245,7 @@ footer a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
   </div>
 
   <footer>
-    <span class="bn">build 4</span>
+    <span class="bn">build 5</span>
     <span class="fnote">single file · every number on screen is computed live from the scene geometry, nothing is keyframed · Sun and Moon shown at equinox for clarity</span>
     <span data-tools-link></span>
     <a href="https://github.com/icspin/one-axis">github</a>
@@ -657,7 +657,7 @@ toLayer(compassF, GEAR);
 toLayer(skyCompG, COMPASS); toLayer(skyCompF, COMPASS);
 
 /* ============================== cameras ============================== */
-function makeCam() { return new THREE.PerspectiveCamera(46, 1, 0.01, 500); }
+function makeCam() { return new THREE.PerspectiveCamera(46, 1, 0.01, 1000); }
 const camG = makeCam(), camF = makeCam();
 const eyeCamG = makeCam(), eyeCamF = makeCam();
 eyeCamG.fov = 8; eyeCamF.fov = 18;   /* the near flat sun is huge, give it room */
