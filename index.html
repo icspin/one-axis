@@ -245,7 +245,7 @@ footer a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
   </div>
 
   <footer>
-    <span class="bn">build 3</span>
+    <span class="bn">build 4</span>
     <span class="fnote">single file · every number on screen is computed live from the scene geometry, nothing is keyframed · Sun and Moon shown at equinox for clarity</span>
     <span data-tools-link></span>
     <a href="https://github.com/icspin/one-axis">github</a>
@@ -463,8 +463,8 @@ poleLabel.position.set(0, 2.82, 0); sceneG.add(poleLabel);
 const eqRing = ringTube(1.012, 0.007, 0x2a8f80);
 eqRing.rotation.x = Math.PI / 2; earth.add(eqRing);
 
-/* inertial star sphere */
-sceneG.add(new THREE.Points(starPoints(1100, 38, 7),
+/* inertial star sphere, outside the whole system so full zoom-out stays inside it */
+sceneG.add(new THREE.Points(starPoints(1100, 450, 7),
   new THREE.PointsMaterial({ color: 0xcdd7ff, size: 2.2, sizeAttenuation: false,
     transparent: true, opacity: 0.85 })));
 
@@ -797,14 +797,21 @@ function updateWorld() {
   azLabel.position.copy(V.obsF).add(new THREE.Vector3(0.17, 0.04, 0.1));
   altLabel.position.copy(V.obsF).add(new THREE.Vector3(0, 0.32, 0));
 
-  /* sight lines: drawn along where each scope actually points, so a wrong
-     axis (demo 6) visibly misses the target */
-  sightG.visible = !V.parked;
-  if (!V.parked) {
-    const from = V.obsW.clone().addScaledVector(V.upW, 0.07)
-      .addScaledVector(V.axisW, 0.20).addScaledVector(V.scopeDirW, 0.45);
+  /* sight line: drawn along where the scope points, so a wrong axis
+     (demo 6) visibly misses the target. While the target is on the far
+     side of the Earth the line turns red and points straight through,
+     showing where it is and why you cannot see it. */
+  {
     const dist = S.target === 'star' ? 300 : (S.target === 'sun' ? SUN_DIST : MOON_DIST);
-    setDotLine(sightG, from, from.clone().addScaledVector(V.scopeDirW, dist), true);
+    const base = V.obsW.clone().addScaledVector(V.upW, 0.07).addScaledVector(V.axisW, 0.20);
+    if (V.parked) {
+      sightG.material.color.setHex(0xff5c5c);
+      setDotLine(sightG, base, base.clone().addScaledVector(V.tgtDirG, dist), true);
+    } else {
+      sightG.material.color.setHex(0xcfd6de);
+      const from = base.addScaledVector(V.scopeDirW, 0.45);
+      setDotLine(sightG, from, from.clone().addScaledVector(V.scopeDirW, dist), true);
+    }
   }
   {
     const from2 = V.obsF.clone().add(new THREE.Vector3(0, 0.16, 0)).addScaledVector(V.tgtDirF, 0.36);
@@ -1137,7 +1144,7 @@ function telemetry() {
   }
   /* eyepiece captions */
   $$('eyeGcap').textContent = S.misalign ? 'drifting: the axis is wrong'
-    : (V.parked ? 'parked: target has set' : 'image holds still');
+    : (V.parked ? 'parked: target is behind the Earth (red line)' : 'image holds still');
   $$('eyeFcap').textContent = 'image has twisted ' + Math.abs(V.frAcc || 0).toFixed(0) + '°';
 }
 
@@ -1227,7 +1234,7 @@ function dialFace() {
     } else if (ptrs.size === 2) {
       const [a, b] = [...ptrs.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (pinch0) (pinchSide === 'G' ? S.camG : S.camF).dist = Math.max(1.6, Math.min(8, dist0 * pinch0 / d));
+      if (pinch0) (pinchSide === 'G' ? S.camG : S.camF).dist = Math.max(1.6, Math.min(300, dist0 * pinch0 / d));
     }
   });
   const up = (e) => { ptrs.delete(e.pointerId); if (!ptrs.size) el.classList.remove('drag'); };
@@ -1235,7 +1242,7 @@ function dialFace() {
   el.addEventListener('wheel', (e) => {
     e.preventDefault();
     const c = sideOf(e) === 'G' ? S.camG : S.camF;
-    c.dist = Math.max(1.6, Math.min(8, c.dist * (e.deltaY > 0 ? 1.07 : 0.935)));
+    c.dist = Math.max(1.6, Math.min(300, c.dist * (e.deltaY > 0 ? 1.07 : 0.935)));
   }, { passive: false });
 })();
 
