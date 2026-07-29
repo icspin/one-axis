@@ -309,10 +309,10 @@ function toLayer(obj, layer) { obj.traverse((o) => o.layers.set(layer)); }
 
 /* ============================== state ============================== */
 const S = {
-  lat: 30.44, t: 0.98, playing: true,
+  lat: 30.44, t: 0.20, playing: true,
   demo: 0, target: 'sun', driveRate: 'sun', misalign: 0,
   view: 'orbit', tracking: true,
-  cam: { yaw: 0.55, pitch: 0.33, dist: 4.0 },
+  cam: { yaw: 0.2, pitch: 0.33, dist: 4.0 },
   sky: { yaw: 0, pitch: 0 },
   eyeBig: false, latAnim: null, trailsOn: false, needTrailClear: false,
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -477,7 +477,7 @@ sceneG.add(moonG);
 const moonLabelG = labelSprite('Moon', '#b9c0cc', { h: 0.08 });
 sceneG.add(moonLabelG);
 /* the demo star target */
-const tgtStar = glowSprite('rgb(180,240,255)', 0.9);
+const tgtStar = glowSprite('rgb(180,240,255)', 9);
 sceneG.add(tgtStar);
 
 /* observer assembly, child of earth so it is carried by the spin */
@@ -535,12 +535,14 @@ sceneF.add(rim);
 const centerLabel = labelSprite('the one center', '#9aa4b0', { h: 0.085 });
 centerLabel.position.set(0, 0.14, 0); sceneF.add(centerLabel);
 /* central axis the flat sky turns around */
-sceneF.add(tube(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1.9, 0), 0.004, 0x2c3138));
+sceneF.add(tube(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1.6, 0), 0.0035, 0x2c3138));
+const feHub = glowSprite('rgb(154,164,176)', 0.14); feHub.position.set(0, 1.62, 0);
+sceneF.add(feHub);
 
 /* FE star dome, rotates about the center */
 const domeF = new THREE.Group(); sceneF.add(domeF);
-domeF.add(new THREE.Points(starPoints(800, 3.3, 19, 0.08),
-  new THREE.PointsMaterial({ color: 0xcdd7ff, size: 2.2, sizeAttenuation: false,
+domeF.add(new THREE.Points(starPoints(800, 2.2, 19, 0.12),
+  new THREE.PointsMaterial({ color: 0xcdd7ff, size: 2.4, sizeAttenuation: false,
     transparent: true, opacity: 0.85 })));
 
 /* FE sun, low and near, circling the center */
@@ -580,7 +582,7 @@ toLayer(mountG, GEAR); toLayer(scopeG, GEAR); toLayer(obs, GEAR); toLayer(obsF, 
 function makeCam() { return new THREE.PerspectiveCamera(46, 1, 0.01, 120); }
 const camG = makeCam(), camF = makeCam();
 const eyeCamG = makeCam(), eyeCamF = makeCam();
-eyeCamG.fov = 8; eyeCamF.fov = 8;
+eyeCamG.fov = 8; eyeCamF.fov = 18;   /* the near flat sun is huge, give it room */
 eyeCamG.layers.set(0); eyeCamF.layers.set(0);
 
 /* ============================== trails ============================== */
@@ -600,7 +602,7 @@ const V = {
   obsF: new THREE.Vector3(), tgtDirF: new THREE.Vector3(),
   az: 0, alt: 0, azRate: 0, altRate: 0, frF: 0, frG: 0
 };
-const STAR_DEC = 22 * DEG, STAR_LON = 2.1;
+const STAR_DEC = 62 * DEG, STAR_LON = 2.1;   /* circumpolar from the mid northern latitudes */
 
 function sunLon(t) { return 0.9 + TAU * t / YEAR; }
 function moonLon(t) { return 2.4 + TAU * t / MONTH; }
@@ -654,7 +656,7 @@ function updateWorld() {
   sunLabelG.position.copy(sunG.position).add(new THREE.Vector3(0, 0.28, 0));
   moonG.position.copy(bodyDirG('moon', t)).multiplyScalar(2.6);
   moonLabelG.position.copy(moonG.position).add(new THREE.Vector3(0, 0.2, 0));
-  tgtStar.position.copy(bodyDirG('star', t)).multiplyScalar(30);
+  tgtStar.position.copy(bodyDirG('star', t)).multiplyScalar(300);
   V.tgtDirG.copy(bodyDirG(S.target, t));
 
   /* mount: polar axis parallel to the world axis, plus any deliberate error */
@@ -667,14 +669,15 @@ function updateWorld() {
   /* scope: last aim carried forward by the earth, driven back about the axis */
   const rs = RATE[S.driveRate] / RATE.star;
   const dAng = V.earthAngle - aim.angle0;
+  const dSign = S.lat >= 0 ? 1 : -1;    /* a flipped mount drives the other way round its axis */
   const qEarth = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dAng);
-  const qDrive = new THREE.Quaternion().setFromAxisAngle(aim.axis, -dAng * rs);
+  const qDrive = new THREE.Quaternion().setFromAxisAngle(aim.axis, -dAng * rs * dSign);
   V.scopeDirW.copy(aim.dir0).applyQuaternion(qEarth).applyQuaternion(qDrive);
   V.scopeUpW.copy(aim.up0).applyQuaternion(qEarth).applyQuaternion(qDrive);
   scopeG.position.copy(V.obsW).addScaledVector(V.upW, 0.07).addScaledVector(V.axisW, 0.20);
   const m = new THREE.Matrix4().lookAt(new THREE.Vector3(), V.scopeDirW.clone().negate(), V.scopeUpW);
   scopeG.quaternion.setFromRotationMatrix(m);
-  raCircle.rotation.z = -dAng * rs;
+  raCircle.rotation.z = -dAng * rs * dSign;
 
   /* labels near the observer */
   latLabel.position.copy(V.obsW).multiplyScalar(1.36);
@@ -712,7 +715,7 @@ function updateWorld() {
 }
 function feRefStarPos(t) {
   const a0 = feStarAngle(t);
-  return new THREE.Vector3(Math.cos(a0 + 0.9) * 2.2, 1.6, Math.sin(a0 + 0.9) * 2.2);
+  return new THREE.Vector3(Math.cos(a0 + 0.9) * 1.5, 1.2, Math.sin(a0 + 0.9) * 1.5);
 }
 function feBearing(t, kind) {
   /* bearing, in the alt-az camera frame, of a fixed dome star near the target */
@@ -771,6 +774,7 @@ function rebuildLatFurniture() {
       pts.push(new THREE.Vector3(Math.cos(a) * 1.025, Math.sin(a) * 1.025, 0));
     }
     latArc = arcMesh(pts, 0.010, C.globe);
+    toLayer(latArc, GEAR);
     earth.add(latArc);
   }
   if (Math.abs(S.lat) > 3) {
@@ -788,6 +792,7 @@ function rebuildLatFurniture() {
       pts.push(center.clone().addScaledVector(d, 0.34));
     }
     axisWedge = arcMesh(pts, 0.009, C.brass);
+    toLayer(axisWedge, GEAR);
     earth.add(axisWedge);
   }
 }
@@ -855,7 +860,7 @@ function orbitCam(cam, follow, distScale) {
 const T3 = { dir: new THREE.Vector3(0, 1, 0), up: new THREE.Vector3(0, 0, 1) };
 function freezeTrailBasis() {
   updateWorld();
-  T3.dir.set(0, S.lat >= 0 ? 1 : -1, 0).addScaledVector(V.upW, 0.18).normalize();
+  T3.dir.set(0, S.lat >= 0 ? 1 : -1, 0).addScaledVector(V.upW, -0.12).normalize();
   T3.up.copy(V.upW);
 }
 function skyCamG(cam) {
@@ -866,7 +871,7 @@ function skyCamG(cam) {
     /* the drive cancels the spin: hold the aim-time view, fixed in the star frame */
     dir = T3.dir.clone(); up = T3.up.clone();
   } else {
-    dir = new THREE.Vector3(0, S.lat >= 0 ? 1 : -1, 0).addScaledVector(V.upW, 0.18).normalize();
+    dir = new THREE.Vector3(0, S.lat >= 0 ? 1 : -1, 0).addScaledVector(V.upW, -0.12).normalize();
     up = V.upW.clone();
   }
   applySkyOffset(dir, up);
@@ -922,8 +927,8 @@ function frame(now) {
     setLat(S.latAnim.from + (S.latAnim.to - S.latAnim.from) * e, true);
     if (k >= 1) S.latAnim = null;
   }
-  const dSimMin = dt * SPEED / 60 * (S.demo === 3 ? 2.2 : 1);
-  if (S.playing) S.t += dt * SPEED / SID_DAY * (S.demo === 3 ? 2.2 : 1);
+  const dSimMin = dt * SPEED / 60 * (S.demo === 3 ? 1.2 : 1);
+  if (S.playing) S.t += dt * SPEED / SID_DAY * (S.demo === 3 ? 1.2 : 1);
 
   updateWorld();
   if (S.playing) V.frAcc = (V.frAcc || 0) + V.frF * dSimMin;
@@ -943,7 +948,10 @@ function frame(now) {
       renderer.setScissor(0, 0, rt.width, rt.height);
       if (S.needTrailClear) { renderer.setClearColor(C.crinkle, 1); renderer.clear(true, true); }
       renderer.clearDepth();
+      const bg = scene.background;
+      scene.background = null;         /* a set background repaints the target and eats the accumulation */
       renderer.render(scene, cam);
+      scene.background = bg;
       renderer.setRenderTarget(null);
       renderer.setViewport(pan.x, pan.y, pan.w, pan.h);
       renderer.setScissor(pan.x, pan.y, pan.w, pan.h);
@@ -982,17 +990,28 @@ function telemetry() {
   $$('tRA').textContent = RATE[S.driveRate].toFixed(3) + '"/s';
   const frg = Math.abs(V.frG) < 0.003 ? 0 : Math.abs(V.frG);
   $$('tFRg').textContent = frg.toFixed(3) + '°/min';
-  $$('tAZ').textContent = (V.azRate >= 0 ? '+' : '') + V.azRate.toFixed(2) + '°/min';
-  $$('tALT').textContent = (V.altRate >= 0 ? '+' : '') + V.altRate.toFixed(2) + '°/min';
+  const fz = (v) => (Math.abs(v) < 0.005 ? 0 : v);
+  $$('tAZ').textContent = (fz(V.azRate) >= 0 ? '+' : '') + fz(V.azRate).toFixed(2) + '°/min';
+  $$('tALT').textContent = (fz(V.altRate) >= 0 ? '+' : '') + fz(V.altRate).toFixed(2) + '°/min';
   $$('tFRf').textContent = Math.abs(V.frF).toFixed(2) + '°/min';
   $$('latVal').textContent = fmtLat(S.lat);
   $$('latRead').textContent = 'polar axis altitude ' +
     Math.abs(S.lat + (S.lat >= 0 ? S.misalign : -S.misalign)).toFixed(1) + '°' +
     (S.misalign ? ' (wrong!)' : '');
+  /* panel captions: in the trails demo they carry the altitude argument */
+  if (S.demo === 3) {
+    $$('capG').textContent = 'pole sits ' + Math.abs(S.lat).toFixed(1) + '° above the horizon = your latitude';
+    const hubAlt = Math.atan2(1.6, V.obsF.length()) / DEG;
+    $$('capF').textContent = 'hub hangs ' + hubAlt.toFixed(0) + '° up' +
+      (S.lat < 0 ? ', to the NORTH' : '') + ' (should be ' + Math.abs(S.lat).toFixed(1) + '°)';
+  } else {
+    $$('capG').textContent = 'spinning ball · distant Sun · ONE driven axis';
+    $$('capF').textContent = 'still disc · near Sun circling · TWO driven axes';
+  }
   /* eyepiece captions */
   const night = V.tgtDirG.dot(V.upW) < -0.02;
   $$('eyeGcap').textContent = S.misalign ? 'drifting: axis is wrong'
-    : (night ? 'target below the horizon right now' : 'field locked');
+    : (night ? 'below horizon (night)' : 'field locked');
   $$('eyeFcap').textContent = 'field rotates ' + Math.abs(V.frF).toFixed(2) +
     '°/min · twisted ' + Math.abs(V.frAcc || 0).toFixed(0) + '° so far';
 }
@@ -1118,14 +1137,17 @@ function setDemo(n) {
   } else if (n === 4) {
     S.eyeBig = true;
     S.cam = { yaw: 0.55, pitch: 0.33, dist: 4.2 };
+    ensureDay();
   } else if (n === 5) {
     S.cam = { yaw: 0.55, pitch: 0.33, dist: 3.55 };
+    ensureDay();
     addSub(sub, [['track a star: 15.041"/s', () => setTarget('star'), () => S.target === 'star'],
                  ['track the Sun: 15.000"/s', () => setTarget('sun'), () => S.target === 'sun'],
                  ['track the Moon: 14.492"/s', () => setTarget('moon'), () => S.target === 'moon']]);
   } else if (n === 6) {
     S.eyeBig = true; S.misalign = 6;
     S.cam = { yaw: 1.0, pitch: 0.22, dist: 3.2 };
+    ensureDay();
   }
   updateWorld();
   reAim();
@@ -1140,7 +1162,16 @@ function addSub(root, items) {
     root.appendChild(b);
   }
 }
-function setTarget(k) { S.target = k; S.driveRate = k; updateWorld(); reAim(); }
+function setTarget(k) { S.target = k; S.driveRate = k; ensureDay(); }
+function ensureDay() {
+  /* nudge the clock forward until the tracked target is well above the horizon */
+  for (let i = 0; i < 60; i++) {
+    updateWorld();
+    if (V.tgtDirG.dot(V.upW) > 0.25) break;
+    S.t += 1 / 48;
+  }
+  reAim();
+}
 
 /* ============================== wiring ============================== */
 document.querySelectorAll('.demo').forEach(b =>
@@ -1194,11 +1225,16 @@ if ((() => { try { return localStorage.getItem('oneaxis-intro'); } catch (err) {
 if (S.reduced) { S.playing = false; $$('pauseBtn').innerHTML = '<b>SP</b>Play'; }
 
 /* ============================== boot ============================== */
+/* test hooks: ?t=0.25&lat=-33.87&demo=3 */
+const qp = new URLSearchParams(location.search);
+if (qp.get('t') !== null) S.t = parseFloat(qp.get('t')) || 0;
+if (qp.get('lat') !== null) { S.lat = parseFloat(qp.get('lat')) || 0; latSlider.value = S.lat; }
 updateWorld();
 rebuildLatFurniture();
 reAim();
 setDemo(0);
 layout();
+if (qp.get('demo') !== null) setDemo(parseInt(qp.get('demo'), 10) || 0);
 requestAnimationFrame(frame);
 
 /* ============================== other tools (hub) ==============================
