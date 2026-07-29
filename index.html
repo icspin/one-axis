@@ -153,6 +153,7 @@ footer a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 }
 @media (max-width:640px){
   #latScale{display:none}
+  .eyeMask .cap{display:none}
   footer .fnote{display:none}
   #controls{padding:6px 12px}
   #telem{gap:1px;font-size:11px;min-width:240px}
@@ -463,18 +464,21 @@ sceneG.add(new THREE.Points(starPoints(1100, 38, 7),
     transparent: true, opacity: 0.85 })));
 
 /* sun and moon, distant, dec 0, slow inertial drift */
+/* sun and moon sit far out so their parallax is honest: a mount that holds a
+   direction holds the body. Sizes are scaled to keep a real-looking disc. */
+const SUN_DIST = 150, MOON_DIST = 140;
 const sunG = new THREE.Group();
-sunG.add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 20, 14),
+sunG.add(new THREE.Mesh(new THREE.SphereGeometry(2.6, 20, 14),
   new THREE.MeshBasicMaterial({ color: 0xfff3c4 })));
-sunG.add(glowSprite('rgb(255,226,122)', 0.55, LBL));
+sunG.add(glowSprite('rgb(255,226,122)', 16, LBL));
 sceneG.add(sunG);
-const sunLabelG = labelSprite('Sun (far away)', '#ffe27a', { h: 0.09 });
+const sunLabelG = labelSprite('Sun (far away)', '#ffe27a', { h: 6.5 });
 sceneG.add(sunLabelG);
 const moonG = new THREE.Group();
-moonG.add(new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 12),
+moonG.add(new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 12),
   new THREE.MeshBasicMaterial({ color: 0xb9c0cc })));
 sceneG.add(moonG);
-const moonLabelG = labelSprite('Moon', '#b9c0cc', { h: 0.08 });
+const moonLabelG = labelSprite('Moon', '#b9c0cc', { h: 5.5 });
 sceneG.add(moonLabelG);
 /* the demo star target */
 const tgtStar = glowSprite('rgb(180,240,255)', 9);
@@ -552,7 +556,7 @@ sunF.add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 18, 12),
   new THREE.MeshBasicMaterial({ color: 0xfff3c4 })));
 sunF.add(glowSprite('rgb(255,226,122)', 0.34, LBL));
 sceneF.add(sunF);
-const sunFTrack = ringTube(SUN_F.r, 0.006, 0x7a4a34);
+const sunFTrack = ringTube(SUN_F.r, 0.004, 0x5a3826);
 sunFTrack.rotation.x = Math.PI / 2; sunFTrack.position.y = SUN_F.h; sceneF.add(sunFTrack);
 const sunLabelF = labelSprite('Sun (small, near)', '#ffe27a', { h: 0.085 });
 sceneF.add(sunLabelF);
@@ -579,7 +583,7 @@ sceneF.add(azLabel, altLabel);
 toLayer(mountG, GEAR); toLayer(scopeG, GEAR); toLayer(obs, GEAR); toLayer(obsF, GEAR);
 
 /* ============================== cameras ============================== */
-function makeCam() { return new THREE.PerspectiveCamera(46, 1, 0.01, 120); }
+function makeCam() { return new THREE.PerspectiveCamera(46, 1, 0.01, 500); }
 const camG = makeCam(), camF = makeCam();
 const eyeCamG = makeCam(), eyeCamF = makeCam();
 eyeCamG.fov = 8; eyeCamF.fov = 18;   /* the near flat sun is huge, give it room */
@@ -652,10 +656,10 @@ function updateWorld() {
 
   /* bodies */
   const sunDir = bodyDirG('sun', t);
-  sunG.position.copy(sunDir).multiplyScalar(3.1);
-  sunLabelG.position.copy(sunG.position).add(new THREE.Vector3(0, 0.28, 0));
-  moonG.position.copy(bodyDirG('moon', t)).multiplyScalar(2.6);
-  moonLabelG.position.copy(moonG.position).add(new THREE.Vector3(0, 0.2, 0));
+  sunG.position.copy(sunDir).multiplyScalar(SUN_DIST);
+  sunLabelG.position.copy(sunG.position).add(new THREE.Vector3(0, 9, 0));
+  moonG.position.copy(bodyDirG('moon', t)).multiplyScalar(MOON_DIST);
+  moonLabelG.position.copy(moonG.position).add(new THREE.Vector3(0, 7, 0));
   tgtStar.position.copy(bodyDirG('star', t)).multiplyScalar(300);
   V.tgtDirG.copy(bodyDirG(S.target, t));
 
@@ -857,23 +861,25 @@ function orbitCam(cam, follow, distScale) {
   cam.lookAt(0, 0.08, 0);
 }
 /* frozen inertial view basis for the tracked long exposure */
-const T3 = { dir: new THREE.Vector3(0, 1, 0), up: new THREE.Vector3(0, 0, 1) };
+const T3 = { dir: new THREE.Vector3(0, 1, 0), up: new THREE.Vector3(0, 0, 1),
+  pos: new THREE.Vector3(0, 1, 0) };
 function freezeTrailBasis() {
   updateWorld();
   T3.dir.set(0, S.lat >= 0 ? 1 : -1, 0).addScaledVector(V.upW, -0.12).normalize();
   T3.up.copy(V.upW);
+  T3.pos.copy(V.obsW).multiplyScalar(1.02);
 }
 function skyCamG(cam) {
-  const pos = V.obsW.clone().multiplyScalar(1.02);
-  cam.position.copy(pos);
+  let pos = V.obsW.clone().multiplyScalar(1.02);
   let dir, up;
   if (S.tracking) {
     /* the drive cancels the spin: hold the aim-time view, fixed in the star frame */
-    dir = T3.dir.clone(); up = T3.up.clone();
+    dir = T3.dir.clone(); up = T3.up.clone(); pos = T3.pos.clone();
   } else {
     dir = new THREE.Vector3(0, S.lat >= 0 ? 1 : -1, 0).addScaledVector(V.upW, -0.12).normalize();
     up = V.upW.clone();
   }
+  cam.position.copy(pos);
   applySkyOffset(dir, up);
   cam.up.copy(up);
   cam.lookAt(pos.clone().add(dir));
@@ -1125,7 +1131,7 @@ function setDemo(n) {
     S.cam = { yaw: 1.05, pitch: 0.28, dist: 3.1 };
     if (!S.reduced) S.latAnim = { from: S.lat, to: S.lat > 45 ? 8 : 72, t0: performance.now(), dur: 5000 };
   } else if (n === 2) {
-    S.cam = { yaw: 1.05, pitch: 0.02, dist: 3.6 };
+    S.cam = { yaw: 1.05, pitch: -0.12, dist: 3.6 };
     S.latAnim = { from: Math.max(S.lat, 20), to: -33.87, t0: performance.now(), dur: S.reduced ? 1 : 6000 };
   } else if (n === 3) {
     S.view = 'sky'; S.trailsOn = true; S.needTrailClear = true; S.tracking = false;
@@ -1164,10 +1170,14 @@ function addSub(root, items) {
 }
 function setTarget(k) { S.target = k; S.driveRate = k; ensureDay(); }
 function ensureDay() {
-  /* nudge the clock forward until the tracked target is well above the horizon */
-  for (let i = 0; i < 60; i++) {
+  /* advance to a fresh rise of the target so hours of tracking lie ahead:
+     first roll past any current appearance, then catch it climbing */
+  let phase = 0;
+  for (let i = 0; i < 120; i++) {
     updateWorld();
-    if (V.tgtDirG.dot(V.upW) > 0.25) break;
+    const up = V.tgtDirG.dot(V.upW);
+    if (phase === 0) { if (up < -0.05) phase = 1; }
+    else if (up > 0.42) break;
     S.t += 1 / 48;
   }
   reAim();
