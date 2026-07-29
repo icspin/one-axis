@@ -66,9 +66,10 @@ button.on.key b{color:var(--brass);border-color:var(--brass-dim)}
 .eyeMask .hole{position:absolute;inset:0;
   background:radial-gradient(circle closest-side, rgba(0,0,0,0) 92%, var(--crinkle) 99%)}
 .eyeMask svg{position:absolute;inset:0;width:100%;height:100%}
-.eyeMask .cap{position:absolute;left:-30%;right:-30%;top:calc(100% + 2px);text-align:center;
-  font:600 12.5px "IBM Plex Mono",monospace}
-#eyeG .cap{color:var(--globe)} #eyeF .cap{color:var(--flat)}
+.eyeMask .cap{position:absolute;top:calc(100% + 2px);
+  font:600 12.5px "IBM Plex Mono",monospace;white-space:nowrap}
+#eyeG .cap{color:var(--globe);left:0;right:auto;text-align:left}
+#eyeF .cap{color:var(--flat);right:0;left:auto;text-align:right}
 
 #caption{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:5;
   max-width:min(880px,94%);padding:8px 14px;border-radius:9px;
@@ -188,9 +189,9 @@ footer a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
   <div id="stage">
     <canvas id="gl"></canvas>
     <div class="panelTag" id="tagG"><span class="nm">GLOBE EARTH</span>
-      <span class="cap" id="capG">spinning ball · distant Sun · ONE driven axis</span></div>
+      <span class="cap" id="capG">spinning ball · faraway Sun · ONE steady motor</span></div>
     <div class="panelTag" id="tagF"><span class="nm">FLAT EARTH</span>
-      <span class="cap" id="capF">still disc · near Sun circling · TWO driven axes</span></div>
+      <span class="cap" id="capF">still disc · small Sun close overhead · TWO restless motors</span></div>
     <div class="eyeMask" id="eyeG"><div class="hole"></div>
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r="48.5" fill="none" stroke="#33e0c2" stroke-width="1.6" opacity=".9"/>
@@ -206,7 +207,7 @@ footer a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
         <circle cx="50" cy="50" r="12" fill="none" stroke="#ff6a45" stroke-width=".9" opacity=".7"/>
       </svg><div class="cap" id="eyeFcap">field rotates</div></div>
     <div id="caption" aria-live="polite"><span id="capText"></span>
-      <span class="gloss">RA: turn around the polar axis · DEC: angle from the celestial equator · ALT / AZ: plain up-down / left-right · field rotation: the image twisting</span>
+      <span class="gloss">RA: the turn around the tilted axis · ALT / AZ: plain up-down / left-right · image twist: the whole view slowly rotating in the eyepiece</span>
       <div id="subBtns"></div>
     </div>
   </div>
@@ -233,18 +234,18 @@ footer a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
     </div>
     <div id="telem" aria-label="Live drive telemetry">
       <div class="trow g"><span class="side">GLOBE</span>
-        <span class="cell">RA drive <b class="hot" id="tRA">15.041"/s</b> <span class="steady" id="tRAtag">STEADY</span></span>
-        <span class="cell">DEC <b id="tDEC">parked</b></span>
-        <span class="cell">field rot <b id="tFRg">0.000&deg;/min</b></span></div>
+        <span class="cell">one motor <b class="hot" id="tRA">15.041"/s</b> <span class="steady" id="tRAtag">STEADY</span></span>
+        <span class="cell">2nd axis <b id="tDEC">parked</b></span>
+        <span class="cell">image twist <b id="tFRg">0.000&deg;/min</b></span></div>
       <div class="trow f"><span class="side">FLAT</span>
-        <span class="cell">AZ <b class="hot" id="tAZ">--</b> <span class="vary">VARYING</span></span>
-        <span class="cell">ALT <b class="hot" id="tALT">--</b> <span class="vary">VARYING</span></span>
-        <span class="cell">field rot <b class="hot" id="tFRf">--</b></span></div>
+        <span class="cell">AZ motor <b class="hot" id="tAZ">--</b> <span class="vary">VARYING</span></span>
+        <span class="cell">ALT motor <b class="hot" id="tALT">--</b> <span class="vary">VARYING</span></span>
+        <span class="cell">image twist <b class="hot" id="tFRf">--</b></span></div>
     </div>
   </div>
 
   <footer>
-    <span class="bn">build 1</span>
+    <span class="bn">build 2</span>
     <span class="fnote">single file · every number on screen is computed live from the scene geometry, nothing is keyframed · Sun and Moon shown at equinox for clarity</span>
     <span data-tools-link></span>
     <a href="https://github.com/icspin/one-axis">github</a>
@@ -278,7 +279,7 @@ footer a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
        both speeds changing all the time, and the eyepiece image twists while
        it tracks. Real numbers for both machines run in the strip below.</p>
     <p class="keys"><b>1..6</b> demonstrations · <b>space</b> pause · <b>R</b> reset ·
-       <b>arrows</b> latitude · drag rotates both views together · pinch or wheel zooms</p>
+       <b>arrows</b> latitude · drag inside a view rotates it · pinch or wheel zooms</p>
     <p>In both views the ground stays fixed on screen, the way you experience
        standing on it, and the skies do what each model says they must. Sun and
        Moon sit at equinox positions for clarity. Every readout is computed from
@@ -306,6 +307,7 @@ const C = {
 const SPEED = 3000;                     /* sim seconds per wall second */
 const LBL = 1;                          /* render layer for text labels */
 const GEAR = 2;                         /* render layer for mount hardware near the observer */
+const COMPASS = 4;                      /* ground compass, drawn live on top of the trails */
 function toLayer(obj, layer) { obj.traverse((o) => o.layers.set(layer)); }
 
 /* ============================== state ============================== */
@@ -313,12 +315,15 @@ const S = {
   lat: 30.44, t: 0.20, playing: true,
   demo: 0, target: 'sun', driveRate: 'sun', misalign: 0,
   view: 'orbit', tracking: true,
-  cam: { yaw: 0.2, pitch: 0.33, dist: 4.0 },
-  sky: { yaw: 0, pitch: 0 },
-  eyeBig: false, latAnim: null, trailsOn: false, needTrailClear: false,
+  camG: { yaw: 0.2, pitch: 0.33, dist: 4.0 },
+  camF: { yaw: 0.2, pitch: 0.33, dist: 4.0 },
+  skyG: { yaw: 0, pitch: 0 },
+  skyF: { yaw: 0, pitch: 0 },
+  eyeBig: false, latAnim: null, trailsOn: false, clearG: false, clearF: false,
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches
 };
-const DEFAULTS = JSON.stringify({ lat: S.lat, t: S.t, cam: S.cam });
+const DEFAULTS = JSON.stringify({ lat: S.lat, t: S.t, cam: S.camG });
+function setCams(c) { S.camG = { ...c }; S.camF = { ...c }; }
 
 /* ============================== renderer ============================== */
 const canvas = document.getElementById('gl');
@@ -491,6 +496,33 @@ horizonRing.rotation.x = Math.PI / 2; horizonRing.position.y = 0.015;
 obs.add(horizonRing);
 obs.add(tube(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.07, 0), 0.02, 0x6b747e));
 
+/* ground compasses. The small ringed one sits at the mount for the outside
+   views; the big letters-only one sits out at the horizon for the sky views,
+   where the small one would fill the whole screen. */
+function makeCompass(r, h, withRing) {
+  const g = new THREE.Group();
+  if (withRing) {
+    const ring = ringTube(r * 1.6, 0.004, 0x5d656e, 48);
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.012;
+    g.add(ring);
+  }
+  for (const [txt, x, z, col] of [['N', r, 0, '#d9a441'], ['S', -r, 0, '#9aa4b0'],
+                                  ['E', 0, r, '#9aa4b0'], ['W', 0, -r, '#9aa4b0']]) {
+    const sp = labelSprite(txt, col, { h });
+    /* sky letters float a few degrees above the horizon so they stay in frame */
+    sp.position.set(x, withRing ? 0.055 : 0.145, z);
+    g.add(sp);
+  }
+  return g;
+}
+const compassG = makeCompass(0.18, 0.07, true);
+obs.add(compassG);
+const skyCompG = makeCompass(1.0, 0.055, false);
+obs.add(skyCompG);
+/* the flat pair joins the flat scene below, placed in rebuildLatFurniture */
+const compassF = makeCompass(0.18, 0.07, true);
+const skyCompF = makeCompass(1.0, 0.055, false);
+
 /* latitude arc and axis-tilt wedge, children of earth, rebuilt on change */
 let latArc = null, axisWedge = null;
 
@@ -506,6 +538,30 @@ const latLabel = labelSprite('latitude 30.4 N', '#33e0c2', { h: 0.095 });
 sceneG.add(latLabel);
 const axisAltLabel = labelSprite('axis tilt 30.4', '#d9a441', { h: 0.095 });
 sceneG.add(axisAltLabel);
+
+/* dotted sight line from the scope to whatever it is tracking */
+function makeDotLine(n, color) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({
+    color, size: 4.5, sizeAttenuation: false, transparent: true, opacity: 0.8 }));
+  pts.frustumCulled = false;
+  toLayer(pts, GEAR);
+  return pts;
+}
+function setDotLine(pts, from, to, curve) {
+  const a = pts.geometry.attributes.position;
+  const n = a.count;
+  const d = new THREE.Vector3().subVectors(to, from);
+  for (let i = 0; i < n; i++) {
+    let k = (i + 1) / n;
+    if (curve) k = Math.pow(k, 1.6);    /* denser dots near the mount */
+    a.setXYZ(i, from.x + d.x * k, from.y + d.y * k, from.z + d.z * k);
+  }
+  a.needsUpdate = true;
+}
+const sightG = makeDotLine(48, 0xcfd6de); sceneG.add(sightG);
+const sightF = makeDotLine(20, 0xff9a7d);   /* joins the flat scene below */
 
 /* ============================== flat scene ============================== */
 const sceneF = new THREE.Scene();
@@ -578,9 +634,15 @@ altFork.add(tube(new THREE.Vector3(0, 0, 0.02), new THREE.Vector3(0, 0, -0.30), 
 const azLabel = labelSprite('AZ', '#ff6a45', { h: 0.08 });
 const altLabel = labelSprite('ALT', '#ff6a45', { h: 0.08 });
 sceneF.add(azLabel, altLabel);
+sceneF.add(compassF);
+sceneF.add(skyCompF);
+sceneF.add(sightF);
 
-/* mount hardware lives on its own layer so sky and eyepiece views skip it */
+/* mount hardware lives on its own layer so sky and eyepiece views skip it.
+   The sky compasses ride inside their parents, so re-set them after the stomp. */
 toLayer(mountG, GEAR); toLayer(scopeG, GEAR); toLayer(obs, GEAR); toLayer(obsF, GEAR);
+toLayer(compassF, GEAR);
+toLayer(skyCompG, COMPASS); toLayer(skyCompF, COMPASS);
 
 /* ============================== cameras ============================== */
 function makeCam() { return new THREE.PerspectiveCamera(46, 1, 0.01, 500); }
@@ -646,7 +708,12 @@ function updateWorld() {
   earth.rotation.y = V.earthAngle;
 
   obs.position.set(Math.cos(lat), Math.sin(lat), 0);
-  obs.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), obs.position.clone().normalize());
+  {
+    /* full local basis: X = north along the ground, Y = up, Z = east */
+    const cl = Math.cos(lat), sl = Math.sin(lat);
+    obs.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+      new THREE.Vector3(-sl, cl, 0), new THREE.Vector3(cl, sl, 0), new THREE.Vector3(0, 0, -1)));
+  }
   obs.updateMatrixWorld(true);
   V.obsW.setFromMatrixPosition(obs.matrixWorld);
   V.upW.copy(V.obsW).normalize();
@@ -678,6 +745,18 @@ function updateWorld() {
   const qDrive = new THREE.Quaternion().setFromAxisAngle(aim.axis, -dAng * rs * dSign);
   V.scopeDirW.copy(aim.dir0).applyQuaternion(qEarth).applyQuaternion(qDrive);
   V.scopeUpW.copy(aim.up0).applyQuaternion(qEarth).applyQuaternion(qDrive);
+  /* park at the pole while the target is below the horizon instead of
+     staring into the ground; snap back on the target's next rise */
+  const tgtUp = V.tgtDirG.dot(V.upW) >= 0;
+  if (!tgtUp && !S.misalign) {
+    V.parked = true;
+    V.scopeDirW.copy(V.axisW);
+    V.scopeUpW.copy(V.northW.dot(V.axisW) > 0.9 ? V.eastW : V.northW)
+      .addScaledVector(V.axisW, -V.scopeUpW.dot(V.axisW)).normalize();
+  } else {
+    if (V.parked && tgtUp) reAim();
+    V.parked = false;
+  }
   scopeG.position.copy(V.obsW).addScaledVector(V.upW, 0.07).addScaledVector(V.axisW, 0.20);
   const m = new THREE.Matrix4().lookAt(new THREE.Vector3(), V.scopeDirW.clone().negate(), V.scopeUpW);
   scopeG.quaternion.setFromRotationMatrix(m);
@@ -705,6 +784,20 @@ function updateWorld() {
   V.tgtDirF.copy(feBodyPos(feKind, t)).sub(V.obsF).normalize();
   azLabel.position.copy(V.obsF).add(new THREE.Vector3(0.17, 0.04, 0.1));
   altLabel.position.copy(V.obsF).add(new THREE.Vector3(0, 0.32, 0));
+
+  /* sight lines: drawn along where each scope actually points, so a wrong
+     axis (demo 6) visibly misses the target */
+  sightG.visible = !V.parked;
+  if (!V.parked) {
+    const from = V.obsW.clone().addScaledVector(V.upW, 0.07)
+      .addScaledVector(V.axisW, 0.20).addScaledVector(V.scopeDirW, 0.45);
+    const dist = S.target === 'star' ? 300 : (S.target === 'sun' ? SUN_DIST : MOON_DIST);
+    setDotLine(sightG, from, from.clone().addScaledVector(V.scopeDirW, dist), true);
+  }
+  {
+    const from2 = V.obsF.clone().add(new THREE.Vector3(0, 0.16, 0)).addScaledVector(V.tgtDirF, 0.36);
+    setDotLine(sightF, from2, feBodyPos(feKind, t), false);
+  }
 
   /* rates via central difference, fixed sim step of 40 s */
   const h = 40 / SID_DAY;
@@ -799,6 +892,13 @@ function rebuildLatFurniture() {
     toLayer(axisWedge, GEAR);
     earth.add(axisWedge);
   }
+  /* flat-side compasses follow the observer; their north points at the disc center */
+  const o = feObsPos(S.lat);
+  const n = o.clone().negate().normalize();
+  const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+    n, new THREE.Vector3(0, 1, 0), new THREE.Vector3(-n.z, 0, n.x)));
+  compassF.position.copy(o); compassF.quaternion.copy(q);
+  skyCompF.position.copy(o); skyCompF.quaternion.copy(q);
 }
 
 /* ============================== layout ============================== */
@@ -838,6 +938,7 @@ function positionDom() {
   tagF.style.top = (split === 'v' ? 8 : LH - (panF.y + panF.h) + 8) + 'px';
   for (const [id, e] of [['eyeG', eyeG], ['eyeF', eyeF]]) {
     const el = document.getElementById(id);
+    el.style.display = S.demo === 3 ? 'none' : '';
     el.style.width = el.style.height = e.s + 'px';
     el.style.left = e.x + 'px';
     el.style.top = (LH - e.gy - e.s) + 'px';
@@ -847,13 +948,13 @@ function makeTargets() {
   if (rtG) rtG.dispose(); if (rtF) rtF.dispose();
   rtG = new THREE.WebGLRenderTarget(Math.max(2, panG.w * DPR), Math.max(2, panG.h * DPR));
   rtF = new THREE.WebGLRenderTarget(Math.max(2, panF.w * DPR), Math.max(2, panF.h * DPR));
-  S.needTrailClear = true;
+  S.clearG = S.clearF = true;
 }
 new ResizeObserver(layout).observe(stage);
 
 /* ============================== cameras per frame ============================== */
-function orbitCam(cam, follow, distScale) {
-  const { yaw, pitch, dist } = S.cam;
+function orbitCam(cam, st, follow, distScale) {
+  const { yaw, pitch, dist } = st;
   const y = yaw + (follow ? V.earthAngle + Math.PI / 2 : 0);
   const d = dist * (distScale || 1);
   cam.position.set(d * Math.cos(pitch) * Math.sin(y), d * Math.sin(pitch), d * Math.cos(pitch) * Math.cos(y));
@@ -880,7 +981,7 @@ function skyCamG(cam) {
     up = V.upW.clone();
   }
   cam.position.copy(pos);
-  applySkyOffset(dir, up);
+  applySkyOffset(dir, up, S.skyG);
   cam.up.copy(up);
   cam.lookAt(pos.clone().add(dir));
 }
@@ -897,15 +998,15 @@ function skyCamF(cam) {
     dir.addScaledVector(new THREE.Vector3(0, 1, 0), 0.25).normalize();
     up = new THREE.Vector3(0, 1, 0);
   }
-  applySkyOffset(dir, up);
+  applySkyOffset(dir, up, S.skyF);
   cam.up.copy(up);
   cam.lookAt(pos.clone().add(dir));
 }
-function applySkyOffset(dir, up) {
-  if (!S.sky.yaw && !S.sky.pitch) return;
+function applySkyOffset(dir, up, off) {
+  if (!off.yaw && !off.pitch) return;
   const right = new THREE.Vector3().crossVectors(dir, up).normalize();
-  dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(up, -S.sky.yaw));
-  dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(right, -S.sky.pitch));
+  dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(up, -off.yaw));
+  dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(right, -off.pitch));
 }
 function eyeCams() {
   eyeCamG.position.copy(V.obsW).addScaledVector(V.upW, 0.09).addScaledVector(V.axisW, 0.20);
@@ -943,21 +1044,20 @@ function frame(now) {
 
   renderer.setScissorTest(true);
 
-  for (const [pan, scene, cam, skyFn, rt, follow, ds] of [
-    [panG, sceneG, camG, skyCamG, rtG, true, 1],
-    [panF, sceneF, camF, skyCamF, rtF, false, 1.12]]) {
+  for (const [pan, scene, cam, skyFn, rt, follow, ds, camState, clearKey] of [
+    [panG, sceneG, camG, skyCamG, rtG, true, 1, S.camG, 'clearG'],
+    [panF, sceneF, camF, skyCamF, rtF, false, 1.12, S.camF, 'clearF']]) {
     if (S.view === 'sky') { skyFn(cam); cam.layers.set(0); }
-    else { orbitCam(cam, follow, ds); cam.layers.enableAll(); }
+    else { orbitCam(cam, camState, follow, ds); cam.layers.enableAll(); }
     if (S.trailsOn && S.view === 'sky') {
       renderer.setRenderTarget(rt);
       renderer.setViewport(0, 0, rt.width, rt.height);
       renderer.setScissor(0, 0, rt.width, rt.height);
-      if (S.needTrailClear) { renderer.setClearColor(C.crinkle, 1); renderer.clear(true, true); }
+      if (S[clearKey]) { renderer.setClearColor(C.crinkle, 1); renderer.clear(true, true); S[clearKey] = false; }
       renderer.clearDepth();
       const bg = scene.background;
       scene.background = null;         /* a set background repaints the target and eats the accumulation */
       renderer.render(scene, cam);
-      scene.background = bg;
       renderer.setRenderTarget(null);
       renderer.setViewport(pan.x, pan.y, pan.w, pan.h);
       renderer.setScissor(pan.x, pan.y, pan.w, pan.h);
@@ -965,6 +1065,13 @@ function frame(now) {
       renderer.setClearColor(C.crinkle, 1);
       renderer.clear(true, true);
       renderer.render(quadScene, quadCam);
+      /* live compass on top so you can always tell where you stand.
+         background stays null here or it would paint over the trails. */
+      renderer.clearDepth();
+      cam.layers.set(COMPASS);
+      renderer.render(scene, cam);
+      cam.layers.set(0);
+      scene.background = bg;
     } else {
       renderer.setViewport(pan.x, pan.y, pan.w, pan.h);
       renderer.setScissor(pan.x, pan.y, pan.w, pan.h);
@@ -973,16 +1080,17 @@ function frame(now) {
       renderer.render(scene, cam);
     }
   }
-  S.needTrailClear = false;
 
-  /* eyepieces */
-  eyeCams();
-  for (const [e, scene, cam] of [[eyeG, sceneG, eyeCamG], [eyeF, sceneF, eyeCamF]]) {
-    renderer.setViewport(e.x, e.gy, e.s, e.s);
-    renderer.setScissor(e.x, e.gy, e.s, e.s);
-    renderer.setClearColor(0x05070a, 1);
-    renderer.clear(true, true);
-    renderer.render(scene, cam);
+  /* eyepieces (hidden during the trails demo, the whole panel is the sky there) */
+  if (S.demo !== 3) {
+    eyeCams();
+    for (const [e, scene, cam] of [[eyeG, sceneG, eyeCamG], [eyeF, sceneF, eyeCamF]]) {
+      renderer.setViewport(e.x, e.gy, e.s, e.s);
+      renderer.setScissor(e.x, e.gy, e.s, e.s);
+      renderer.setClearColor(0x05070a, 1);
+      renderer.clear(true, true);
+      renderer.render(scene, cam);
+    }
   }
   renderer.setScissorTest(false);
 }
@@ -995,31 +1103,30 @@ function fmtLat(v) {
 function telemetry() {
   $$('tRA').textContent = RATE[S.driveRate].toFixed(3) + '"/s';
   const frg = Math.abs(V.frG) < 0.003 ? 0 : Math.abs(V.frG);
-  $$('tFRg').textContent = frg.toFixed(3) + '°/min';
+  $$('tFRg').textContent = V.parked ? '--' : frg.toFixed(3) + '°/min';
   const fz = (v) => (Math.abs(v) < 0.005 ? 0 : v);
   $$('tAZ').textContent = (fz(V.azRate) >= 0 ? '+' : '') + fz(V.azRate).toFixed(2) + '°/min';
   $$('tALT').textContent = (fz(V.altRate) >= 0 ? '+' : '') + fz(V.altRate).toFixed(2) + '°/min';
   $$('tFRf').textContent = Math.abs(V.frF).toFixed(2) + '°/min';
   $$('latVal').textContent = fmtLat(S.lat);
-  $$('latRead').textContent = 'polar axis altitude ' +
+  $$('latRead').textContent = 'axis tilts up ' +
     Math.abs(S.lat + (S.lat >= 0 ? S.misalign : -S.misalign)).toFixed(1) + '°' +
     (S.misalign ? ' (wrong!)' : '');
   /* panel captions: in the trails demo they carry the altitude argument */
   if (S.demo === 3) {
-    $$('capG').textContent = 'pole sits ' + Math.abs(S.lat).toFixed(1) + '° above the horizon = your latitude';
+    $$('capG').textContent = 'from where you stand, looking ' + (S.lat >= 0 ? 'north' : 'south') +
+      ' · the still point sits ' + Math.abs(S.lat).toFixed(1) + '° up = your latitude';
     const hubAlt = Math.atan2(1.6, V.obsF.length()) / DEG;
-    $$('capF').textContent = 'hub hangs ' + hubAlt.toFixed(0) + '° up' +
-      (S.lat < 0 ? ', to the NORTH' : '') + ' (should be ' + Math.abs(S.lat).toFixed(1) + '°)';
+    $$('capF').textContent = 'the spin hub hangs ' + hubAlt.toFixed(0) + '° up' +
+      (S.lat < 0 ? ', toward the NORTH' : '') + ' (should be ' + Math.abs(S.lat).toFixed(1) + '°)';
   } else {
-    $$('capG').textContent = 'spinning ball · distant Sun · ONE driven axis';
-    $$('capF').textContent = 'still disc · near Sun circling · TWO driven axes';
+    $$('capG').textContent = 'spinning ball · faraway Sun · ONE steady motor';
+    $$('capF').textContent = 'still disc · small Sun close overhead · TWO restless motors';
   }
   /* eyepiece captions */
-  const night = V.tgtDirG.dot(V.upW) < -0.02;
-  $$('eyeGcap').textContent = S.misalign ? 'drifting: axis is wrong'
-    : (night ? 'below horizon (night)' : 'field locked');
-  $$('eyeFcap').textContent = 'field rotates ' + Math.abs(V.frF).toFixed(2) +
-    '°/min · twisted ' + Math.abs(V.frAcc || 0).toFixed(0) + '° so far';
+  $$('eyeGcap').textContent = S.misalign ? 'drifting: the axis is wrong'
+    : (V.parked ? 'parked: target has set' : 'image holds still');
+  $$('eyeFcap').textContent = 'image has twisted ' + Math.abs(V.frAcc || 0).toFixed(0) + '°';
 }
 
 /* ============================== dial ============================== */
@@ -1060,7 +1167,7 @@ function dialFace() {
     let da = ang(e) - a0;
     if (da > Math.PI) da -= TAU; if (da < -Math.PI) da += TAU;
     S.t = t0 - da / TAU;
-    if (S.trailsOn) S.needTrailClear = true;
+    if (S.trailsOn) S.clearG = S.clearF = true;
   });
   const end = () => { on = false; el.classList.remove('drag'); };
   dialSvg.addEventListener('pointerup', end);
@@ -1071,14 +1178,21 @@ function dialFace() {
 (function pointerOrbit() {
   const el = canvas;
   const ptrs = new Map();
-  let pinch0 = 0, dist0 = 0;
+  let pinch0 = 0, dist0 = 0, pinchSide = 'G';
+  function sideOf(e) {
+    const r = el.getBoundingClientRect();
+    if (split === 'v') return (e.clientX - r.left) >= panF.x ? 'F' : 'G';
+    return (e.clientY - r.top) < r.height / 2 ? 'G' : 'F';
+  }
   el.addEventListener('pointerdown', (e) => {
-    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, side: sideOf(e) });
     el.setPointerCapture(e.pointerId);
     el.classList.add('drag');
     if (ptrs.size === 2) {
       const [a, b] = [...ptrs.values()];
-      pinch0 = Math.hypot(a.x - b.x, a.y - b.y); dist0 = S.cam.dist;
+      pinch0 = Math.hypot(a.x - b.x, a.y - b.y);
+      pinchSide = a.side;
+      dist0 = (pinchSide === 'G' ? S.camG : S.camF).dist;
     }
   });
   el.addEventListener('pointermove', (e) => {
@@ -1088,35 +1202,40 @@ function dialFace() {
     p.x = e.clientX; p.y = e.clientY;
     if (ptrs.size === 1) {
       if (S.view === 'sky') {
-        S.sky.yaw += dx * 0.0035;
-        S.sky.pitch = Math.max(-1.2, Math.min(1.2, S.sky.pitch + dy * 0.0035));
+        const off = p.side === 'G' ? S.skyG : S.skyF;
+        off.yaw += dx * 0.0035;
+        off.pitch = Math.max(-1.2, Math.min(1.2, off.pitch + dy * 0.0035));
+        /* re-aiming mid exposure would smear everything: restart that panel's exposure */
+        if (S.trailsOn) S['clear' + p.side] = true;
       } else {
-        S.cam.yaw -= dx * 0.006;
-        S.cam.pitch = Math.max(-1.35, Math.min(1.35, S.cam.pitch + dy * 0.006));
+        const c = p.side === 'G' ? S.camG : S.camF;
+        c.yaw -= dx * 0.006;
+        c.pitch = Math.max(-1.35, Math.min(1.35, c.pitch + dy * 0.006));
       }
     } else if (ptrs.size === 2) {
       const [a, b] = [...ptrs.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (pinch0) S.cam.dist = Math.max(1.6, Math.min(8, dist0 * pinch0 / d));
+      if (pinch0) (pinchSide === 'G' ? S.camG : S.camF).dist = Math.max(1.6, Math.min(8, dist0 * pinch0 / d));
     }
   });
   const up = (e) => { ptrs.delete(e.pointerId); if (!ptrs.size) el.classList.remove('drag'); };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   el.addEventListener('wheel', (e) => {
     e.preventDefault();
-    S.cam.dist = Math.max(1.6, Math.min(8, S.cam.dist * (e.deltaY > 0 ? 1.07 : 0.935)));
+    const c = sideOf(e) === 'G' ? S.camG : S.camF;
+    c.dist = Math.max(1.6, Math.min(8, c.dist * (e.deltaY > 0 ? 1.07 : 0.935)));
   }, { passive: false });
 })();
 
 /* ============================== demos ============================== */
 const CAPS = {
-  0: 'Two worlds, one machine. The numbered buttons above run the demonstrations. Drag to spin both views together.',
-  1: 'Slide the latitude. The brass polar axis always tilts up from the horizon by exactly your latitude: flat at the equator, straight up at the pole. One number, measured against the sky, sets up the whole machine anywhere on Earth.',
-  2: 'Watch the axis flip. South of the equator the mount points at a second celestial pole in the southern sky, and star circles run the opposite way. A flat plane has one center overhead. It has nowhere to put a second pole.',
-  3: 'A long exposure of each sky, seen from the ground. Globe: stars sweep clean circles about the pole, and turning the one axis freezes them to points. Flat: an off-center observer gets sweeps that are not circles and never close. Nobody photographs that sky.',
-  4: 'Through both telescopes at once. The globe mount holds the target and the whole field still. The flat mount keeps its target centered, but the field twists as it tracks. That twist is why alt-az photos need a de-rotator. Refraction cannot do this.',
-  5: 'Three switch positions on a real motor: stars 15.041, Sun 15.000, Moon 14.492 arcsec per second. Same axis, same direction, all constant. The gaps ARE the year and the month: the Sun falls one lap behind the stars per year, the Moon one per 27.3 days.',
-  6: 'The axis is now set wrong by 6 degrees on purpose. One motor at the right speed around the wrong line, and the target drifts out of the eyepiece. Tilt equals latitude is not a habit, it is measured, and the sky grades it instantly.'
+  0: 'Two worlds, one machine. The numbered buttons above run the demonstrations. Drag inside either view to spin it. Press R to line them back up.',
+  1: 'Slide the latitude. The brass axis always tilts up by exactly your latitude: lying flat at the equator, pointing straight up at the pole. One number sets up the whole machine anywhere on Earth, and the sky itself tells you if you got it right.',
+  2: 'Go south of the equator and the axis flips: it now points at a second pole in the southern sky, and the stars circle it the other way round. A flat world has one center overhead. There is nowhere to put a second pole.',
+  3: 'Leave the camera shutter open for hours. On the ball, stars draw clean circles around one point, and turning the one motor freezes them into dots. On the disc, anyone away from the center would get warped loops that never close. Nobody has ever photographed that sky.',
+  4: 'Looking through both telescopes at once. The ball mount holds the target still AND keeps the picture from turning. The flat mount keeps its target centered, but the whole picture slowly twists. Real two-axis cameras need an extra motor just to undo that twist. Bent light cannot explain a twist.',
+  5: 'One motor, three speeds printed on the box: stars 15.041, Sun 15.000, Moon 14.492 arcseconds per second. Same axis, same direction, all steady. The tiny gaps ARE the year and the month: the Sun slips one lap behind the stars each year, the Moon one lap every 27.3 days.',
+  6: 'The axis is now set wrong by 6 degrees on purpose. Right speed, wrong line: the target slides out of view. The tilt matching your latitude is not a habit, it is measured, and the sky grades your setup instantly.'
 };
 function setDemo(n) {
   S.demo = n;
@@ -1124,35 +1243,35 @@ function setDemo(n) {
   $$('capText').textContent = CAPS[n] || CAPS[0];
   const sub = $$('subBtns'); sub.innerHTML = '';
   S.trailsOn = false; S.view = 'orbit'; S.eyeBig = false; S.misalign = 0;
-  S.sky.yaw = 0; S.sky.pitch = 0;
+  S.skyG = { yaw: 0, pitch: 0 }; S.skyF = { yaw: 0, pitch: 0 };
   S.target = 'sun'; S.driveRate = 'sun';
   V.frAcc = 0;
   if (n === 1) {
-    S.cam = { yaw: 1.05, pitch: 0.28, dist: 3.1 };
+    setCams({ yaw: 1.05, pitch: 0.28, dist: 3.1 });
     if (!S.reduced) S.latAnim = { from: S.lat, to: S.lat > 45 ? 8 : 72, t0: performance.now(), dur: 5000 };
   } else if (n === 2) {
-    S.cam = { yaw: 1.05, pitch: -0.12, dist: 3.6 };
+    setCams({ yaw: 1.05, pitch: -0.12, dist: 3.6 });
     S.latAnim = { from: Math.max(S.lat, 20), to: -33.87, t0: performance.now(), dur: S.reduced ? 1 : 6000 };
   } else if (n === 3) {
-    S.view = 'sky'; S.trailsOn = true; S.needTrailClear = true; S.tracking = false;
+    S.view = 'sky'; S.trailsOn = true; S.clearG = S.clearF = true; S.tracking = false;
     S.target = 'star'; S.driveRate = 'star';
     freezeTrailBasis();
-    addSub(sub, [['mount OFF: let it spin', () => { S.tracking = false; S.needTrailClear = true; }, () => !S.tracking],
-                 ['mount ON: one axis drives', () => { S.tracking = true; freezeTrailBasis(); reAim(); S.needTrailClear = true; }, () => S.tracking],
-                 ['clear exposure', () => { S.needTrailClear = true; }, () => false]]);
+    addSub(sub, [['motor OFF: sky streaks', () => { S.tracking = false; S.clearG = S.clearF = true; }, () => !S.tracking],
+                 ['motor ON: stars freeze', () => { S.tracking = true; freezeTrailBasis(); reAim(); S.clearG = S.clearF = true; }, () => S.tracking],
+                 ['restart photo', () => { S.clearG = S.clearF = true; }, () => false]]);
   } else if (n === 4) {
     S.eyeBig = true;
-    S.cam = { yaw: 0.55, pitch: 0.33, dist: 4.2 };
+    setCams({ yaw: 0.55, pitch: 0.33, dist: 4.2 });
     ensureDay();
   } else if (n === 5) {
-    S.cam = { yaw: 0.55, pitch: 0.33, dist: 3.55 };
+    setCams({ yaw: 0.55, pitch: 0.33, dist: 3.55 });
     ensureDay();
     addSub(sub, [['track a star: 15.041"/s', () => setTarget('star'), () => S.target === 'star'],
                  ['track the Sun: 15.000"/s', () => setTarget('sun'), () => S.target === 'sun'],
                  ['track the Moon: 14.492"/s', () => setTarget('moon'), () => S.target === 'moon']]);
   } else if (n === 6) {
     S.eyeBig = true; S.misalign = 6;
-    S.cam = { yaw: 1.0, pitch: 0.22, dist: 3.2 };
+    setCams({ yaw: 1.0, pitch: 0.22, dist: 3.2 });
     ensureDay();
   }
   updateWorld();
@@ -1194,9 +1313,10 @@ function togglePause() {
 }
 $$('resetBtn').addEventListener('click', resetAll);
 function resetAll() {
+  try { localStorage.removeItem('oneaxis-state-v1'); } catch (err) {}
   const d = JSON.parse(DEFAULTS);
-  S.lat = d.lat; S.t = d.t; S.cam = { ...d.cam };
-  S.sky = { yaw: 0, pitch: 0 }; S.latAnim = null;
+  S.lat = d.lat; S.t = d.t; setCams(d.cam);
+  S.skyG = { yaw: 0, pitch: 0 }; S.skyF = { yaw: 0, pitch: 0 }; S.latAnim = null;
   S.target = 'sun'; S.driveRate = 'sun'; S.misalign = 0;
   if (!S.playing) togglePause();
   latSlider.value = S.lat;
@@ -1212,7 +1332,7 @@ function setLat(v, fromAnim) {
   updateWorld();
   reAim();
   V.frAcc = 0;
-  if (S.trailsOn) { freezeTrailBasis(); S.needTrailClear = true; }
+  if (S.trailsOn) { freezeTrailBasis(); S.clearG = S.clearF = true; }
 }
 document.querySelectorAll('#presets button').forEach(b =>
   b.addEventListener('click', () => setLat(parseFloat(b.dataset.lat))));
@@ -1235,16 +1355,51 @@ if ((() => { try { return localStorage.getItem('oneaxis-intro'); } catch (err) {
 if (S.reduced) { S.playing = false; $$('pauseBtn').innerHTML = '<b>SP</b>Play'; }
 
 /* ============================== boot ============================== */
-/* test hooks: ?t=0.25&lat=-33.87&demo=3 */
+window.__oa = { S, V, T3, camG, camF, renderer, sceneG, sceneF, THREE };   /* console debug handle */
+/* everything you set survives a refresh; Reset clears it */
+const STORE = 'oneaxis-state-v1';
+function persistState() {
+  try {
+    localStorage.setItem(STORE, JSON.stringify({
+      lat: S.lat, t: S.t, demo: S.demo, target: S.target, driveRate: S.driveRate,
+      camG: S.camG, camF: S.camF, skyG: S.skyG, skyF: S.skyF,
+      tracking: S.tracking, misalign: S.misalign, playing: S.playing
+    }));
+  } catch (err) {}
+}
+/* test hooks: ?t=0.25&lat=-33.87&demo=3 (params win over the saved session) */
 const qp = new URLSearchParams(location.search);
+let saved = null;
+if (![...qp.keys()].length) {
+  try { saved = JSON.parse(localStorage.getItem(STORE)); } catch (err) {}
+}
 if (qp.get('t') !== null) S.t = parseFloat(qp.get('t')) || 0;
 if (qp.get('lat') !== null) { S.lat = parseFloat(qp.get('lat')) || 0; latSlider.value = S.lat; }
+if (saved && typeof saved.lat === 'number') { S.lat = saved.lat; latSlider.value = S.lat; }
+if (saved && typeof saved.t === 'number') S.t = saved.t;
 updateWorld();
 rebuildLatFurniture();
 reAim();
-setDemo(0);
-layout();
+setDemo(saved && saved.demo ? saved.demo : 0);
 if (qp.get('demo') !== null) setDemo(parseInt(qp.get('demo'), 10) || 0);
+if (saved) {
+  /* setDemo snaps cameras and the clock; put back what the user actually had */
+  S.latAnim = null;
+  if (typeof saved.t === 'number') S.t = saved.t;
+  if (saved.camG) S.camG = { ...saved.camG };
+  if (saved.camF) S.camF = { ...saved.camF };
+  if (saved.skyG) S.skyG = { ...saved.skyG };
+  if (saved.skyF) S.skyF = { ...saved.skyF };
+  if (saved.target) { S.target = saved.target; S.driveRate = saved.driveRate || saved.target; }
+  if (saved.demo === 3) S.tracking = !!saved.tracking;
+  updateWorld();
+  reAim();
+  if (S.trailsOn) { freezeTrailBasis(); S.clearG = S.clearF = true; }
+  if (saved.playing === false && S.playing) togglePause();
+}
+layout();
+setInterval(persistState, 3000);
+addEventListener('beforeunload', persistState);
 requestAnimationFrame(frame);
 
 /* ============================== other tools (hub) ==============================
